@@ -63,6 +63,10 @@ func SetEnvALL(envs map[string]string) error {
 }
 
 func Login(args ...string) {
+	if len(args) != 3 {
+		fmt.Fprintf(os.Stderr, "login operator password bucket\n")
+		os.Exit(-1)
+	}
 	smap := map[string]string{
 		"UPX_USERNAME": args[0],
 		"UPX_PASSWORD": args[1],
@@ -228,6 +232,7 @@ func main() {
 	driver, err = NewHandler()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "re login %v\n", err)
+		os.Exit(-1)
 	}
 
 	switch args[1] {
