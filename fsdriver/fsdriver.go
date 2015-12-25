@@ -62,7 +62,7 @@ func (dr *FsDriver) GetItems(src, des string) error {
 	var ch chan *upyun.FileInfo
 
 	src = dr.abs(src)
-	if ok, err := dr.isDir(src); err != nil {
+	if ok, err := dr.IsDir(src); err != nil {
 		return err
 	} else {
 		if ok {
@@ -168,7 +168,7 @@ func (dr *FsDriver) PutItems(src, des string) error {
 	ch := make(chan string, dr.maxConc+10)
 	des = dr.abs(des)
 
-	isUpDir, err := dr.isDir(des)
+	isUpDir, err := dr.IsDir(des)
 	if err != nil && err.Error() != "X-Error-Code=40400001" {
 		return err
 	}
@@ -239,7 +239,7 @@ func (dr *FsDriver) PutItems(src, des string) error {
 
 func (dr *FsDriver) Remove(path string) error {
 	path = dr.abs(path)
-	ok, err := dr.isDir(path)
+	ok, err := dr.IsDir(path)
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,8 @@ func (dr *FsDriver) Remove(path string) error {
 	return nil
 }
 
-func (dr *FsDriver) isDir(path string) (bool, error) {
+func (dr *FsDriver) IsDir(path string) (bool, error) {
+	path = dr.abs(path)
 	if strings.HasSuffix(path, "/") {
 		path = path[0 : len(path)-1]
 	}

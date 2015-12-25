@@ -4,21 +4,37 @@ package main
 
 import (
 	. "./fsdriver"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/howeyc/gopass"
 	"github.com/jehiah/go-strftime"
 	"github.com/polym/go-sdk/upyun"
+	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
 	"sort"
-	"syscall"
 )
 
-const version = "v0.0.1"
+const (
+	version = "v0.0.1"
+)
+
+type Config struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Bucket   string `json:"bucket"`
+	CurDir   string `sjon:"curdir"`
+}
 
 var (
+	conf             *Config
 	driver           *FsDriver
 	username, bucket string
+
+	// TODO: refine
+	confname = os.Getenv("HOME") + "/.upx.cfg"
 
 	cmdDesc = map[string]string{
 		"cd":      "Change working directory",
@@ -40,52 +56,75 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
-func NewHandler() (*FsDriver, error) {
-	username = os.Getenv("UPX_USERNAME")
-	password := os.Getenv("UPX_PASSWORD")
-	bucket = os.Getenv("UPX_BUCKET")
-	curDir := os.Getenv("UPX_CURDIR")
-	if curDir == "" {
-		curDir = "/"
+func loadConfig() (*Config, error) {
+	var err error
+	var fd *os.File
+	var b []byte
+	var config Config
+
+	if fd, err = os.Open(confname); err == nil {
+		defer fd.Close()
+		if b, err = ioutil.ReadAll(fd); err == nil {
+			if b, err = base64.StdEncoding.DecodeString(string(b)); err == nil {
+				err = json.Unmarshal(b, &config)
+			}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func saveConfig(conf *Config) error {
+	var err error
+	var fd *os.File
+	var b []byte
+	var s string
+
+	if fd, err = os.OpenFile(confname, os.O_RDWR|os.O_TRUNC|os.O_CREATE,
+		0600); err == nil {
+		defer fd.Close()
+		if b, err = json.Marshal(conf); err == nil {
+			s = base64.StdEncoding.EncodeToString(b)
+			_, err = fd.WriteString(s)
+		}
+	}
+
+	return err
+}
+
+func NewHandler() (driver *FsDriver, err error) {
+	if conf, err = loadConfig(); err != nil {
+		return nil, err
 	}
 
 	logger := log.New(os.Stdout, "", 0)
-	return NewFsDriver(bucket, username, password, curDir, 10, logger)
-}
-
-func SetEnvALL(envs map[string]string) error {
-	for k, v := range envs {
-		if err := os.Setenv(k, v); err != nil {
-			return err
-		}
-	}
-	return syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
+	return NewFsDriver(conf.Bucket, conf.Username, conf.Password, conf.CurDir, 10, logger)
 }
 
 func Login(args ...string) {
-	if len(args) != 3 {
-		fmt.Fprintf(os.Stderr, "login operator password bucket\n")
+	config := &Config{CurDir: "/"}
+
+	fmt.Printf("ServiceName: ")
+	fmt.Scanf("%s\n", &config.Bucket)
+	fmt.Printf("Username: ")
+	fmt.Scanf("%s\n", &config.Username)
+	fmt.Printf("Password: ")
+	config.Password = string(gopass.GetPasswdMasked())
+
+	if err := saveConfig(config); err != nil {
+		fmt.Fprintf(os.Stderr, "login: %v\n\n", err)
 		os.Exit(-1)
 	}
-	smap := map[string]string{
-		"UPX_USERNAME": args[0],
-		"UPX_PASSWORD": args[1],
-		"UPX_BUCKET":   args[2],
-		"UPX_CURDIR":   "/",
-	}
-
-	SetEnvALL(smap)
 }
 
 func Logout() {
-	smap := map[string]string{
-		"UPX_USERNAME": "",
-		"UPX_PASSWORD": "",
-		"UPX_BUCKET":   "",
-		"UPX_CURDIR":   "/",
+	if err := os.Remove(confname); err != nil {
+		fmt.Fprintf(os.Stderr, "logout: %v\n\n", err)
+		os.Exit(-1)
 	}
-
-	SetEnvALL(smap)
 }
 
 func Cd(args ...string) {
@@ -94,16 +133,16 @@ func Cd(args ...string) {
 		path = args[0]
 	}
 
-	if err := driver.ChangeDir(path); err != nil {
-		fmt.Fprintf(os.Stderr, "cd %s: %v\n", path, err)
+	var err error
+	if err = driver.ChangeDir(path); err == nil {
+		conf.CurDir = driver.GetCurDir()
+		err = saveConfig(conf)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cd %s: %v\n\n", path, err)
 		os.Exit(-1)
 	}
-
-	smap := map[string]string{
-		"UPX_CURDIR": driver.GetCurDir(),
-	}
-
-	SetEnvALL(smap)
 }
 
 func Ls(args ...string) {
@@ -112,7 +151,7 @@ func Ls(args ...string) {
 		path = args[0]
 	}
 	if infos, err := driver.ListDir(path); err != nil {
-		fmt.Fprintf(os.Stderr, "ls %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "ls %s: %v\n\n", path, err)
 		os.Exit(-1)
 	} else {
 		sort.Sort(ByName(infos))
@@ -130,7 +169,7 @@ func Ls(args ...string) {
 }
 
 func Pwd() {
-	fmt.Println(driver.GetCurDir())
+	fmt.Println(driver.GetCurDir() + "\n")
 }
 
 func Get(args ...string) {
@@ -147,7 +186,7 @@ func Get(args ...string) {
 	}
 
 	if err := driver.GetItems(src, des); err != nil {
-		fmt.Fprintf(os.Stderr, "get %s %s: %v\n", src, des, err)
+		fmt.Fprintf(os.Stderr, "get %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
 }
@@ -166,24 +205,30 @@ func Put(args ...string) {
 	}
 
 	if err := driver.PutItems(src, des); err != nil {
-		fmt.Fprintf(os.Stderr, "put %s %s: %v\n", src, des, err)
+		fmt.Fprintf(os.Stderr, "put %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
 }
 
 func Rm(args ...string) {
 	for _, path := range args {
+		if ok, err := driver.IsDir(path); err == nil && ok {
+			fmt.Printf("< %s > is a directory. Are you sure to remove it? (y/n) ", path)
+			var ans string
+			if fmt.Scanf("%s", &ans); ans != "y" {
+				continue
+			}
+		}
 		if err := driver.Remove(path); err != nil {
-			fmt.Fprintf(os.Stderr, "remove %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "remove %s: %v\n\n", path, err)
 		}
 	}
 }
 
 func Mkdir(args ...string) {
 	for _, path := range args {
-		fmt.Println(path)
 		if err := driver.MakeDir(path); err != nil {
-			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n\n", path, err)
 		}
 	}
 }
@@ -216,7 +261,7 @@ func main() {
 
 	switch args[1] {
 	case "login":
-		Login(args[2:]...)
+		Login()
 	case "logout":
 		Logout()
 		return
@@ -224,14 +269,14 @@ func main() {
 		Help(args...)
 		return
 	case "version":
-		fmt.Printf("%s version %s %s/%s\n", args[0], version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("%s version %s %s/%s\n\n", args[0], version, runtime.GOOS, runtime.GOARCH)
 		return
 	}
 
 	var err error
 	driver, err = NewHandler()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "re login %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nfailed to log in. %v\n\n", err)
 		os.Exit(-1)
 	}
 

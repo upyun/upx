@@ -1,6 +1,15 @@
-> upx is a tool for managing files in UPYUN
+> upx is a tool for managing files in UPYUN. ONLY support \*nix and darwin
 
-## Intall
+## Feature Summary
+
+- upload file and directory
+- download file and directory
+- remove file and directory
+- make directory
+- list directory
+
+
+## Installation
 
 ```
 $ git clone https://github.com/polym/upx.git
@@ -28,3 +37,8 @@ The commands are:
 	version  Print version
 
 ```
+
+
+## TODO
+
+- support for removing all files which are too old
