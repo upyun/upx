@@ -17,10 +17,6 @@ import (
 	"sort"
 )
 
-const (
-	version = "v0.0.1"
-)
-
 type Config struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -29,9 +25,9 @@ type Config struct {
 }
 
 var (
-	conf             *Config
-	driver           *FsDriver
-	username, bucket string
+	conf    *Config
+	driver  *FsDriver
+	version string
 
 	// TODO: refine
 	confname = os.Getenv("HOME") + "/.upx.cfg"
@@ -160,7 +156,7 @@ func Ls(args ...string) {
 			if v.Type != "folder" {
 				s = "-rw-rw-rw-"
 			}
-			s += fmt.Sprintf(" 1 %s %s %12d", username, bucket, v.Size)
+			s += fmt.Sprintf(" 1 %s %s %12d", conf.Username, conf.Bucket, v.Size)
 			s += " " + strftime.Format("%b %d %H:%M", v.Time)
 			s += " " + v.Name
 			fmt.Println(s)

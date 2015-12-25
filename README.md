@@ -11,9 +11,20 @@
 
 ## Installation
 
+### Download binary
+
+```
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-VERSION
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-VERSION
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-i386-VERSION
+$ chmod +x /usr/local/bin/upx
+```
+
+### Source Compile
+
 ```
 $ git clone https://github.com/polym/upx.git
-$ cd upx && go build .
+$ cd upx && make
 ```
 
 ## Usage
@@ -42,3 +53,4 @@ The commands are:
 ## TODO
 
 - support for removing all files which are too old
+- windows support

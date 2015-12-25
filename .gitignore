@@ -1,3 +1,5 @@
 upx
 *.swo
 *.swp
+*.swn
+upx-*

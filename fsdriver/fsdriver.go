@@ -101,6 +101,7 @@ func (dr *FsDriver) GetItems(src, des string) error {
 						}
 					}
 
+					srcPath = dr.abs(srcPath)
 					var err error
 					if err := os.MkdirAll(path.Dir(desPath), os.ModePerm); err == nil {
 						// open a new file
@@ -173,6 +174,11 @@ func (dr *FsDriver) PutItems(src, des string) error {
 		return err
 	}
 
+	srcInfo, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
 	// upload items to the directory which doesn't exist
 	if strings.HasSuffix(des, "/") {
 		isUpDir = true
@@ -193,12 +199,18 @@ func (dr *FsDriver) PutItems(src, des string) error {
 
 				desPath = des
 				if isUpDir {
-					desPath += "/" + strings.Replace(fname, src, "", 1)
+					if srcInfo.IsDir() {
+						desPath += "/" + strings.Replace(fname, src, "", 1)
+					} else {
+						desPath += "/" + filepath.Base(fname)
+					}
 				}
 
 				if strings.HasSuffix(desPath, "/") {
 					panic(fmt.Sprintf("desPath should not HasSuffix with / %s", desPath))
 				}
+
+				desPath = dr.abs(desPath)
 
 				var fd *os.File
 				if fd, err = os.OpenFile(fname, os.O_RDWR, 0600); err == nil {
