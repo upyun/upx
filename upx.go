@@ -3,18 +3,18 @@
 package main
 
 import (
-	. "./fsdriver"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/jehiah/go-strftime"
-	"github.com/polym/go-sdk/upyun"
+	"github.com/upyun/go-sdk/upyun"
 	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
 	"sort"
+	"time"
 )
 
 type Config struct {
@@ -43,6 +43,8 @@ var (
 		"get":     "Get directory or file from UPYUN",
 		"rm":      "Remove one or more directories and files",
 		"version": "Print version",
+		"help":    "Help information",
+		"info":    "Current information",
 	}
 )
 
@@ -105,7 +107,7 @@ func Login(args ...string) {
 
 	fmt.Printf("ServiceName: ")
 	fmt.Scanf("%s\n", &config.Bucket)
-	fmt.Printf("Username: ")
+	fmt.Printf("Operator: ")
 	fmt.Scanf("%s\n", &config.Username)
 	fmt.Printf("Password: ")
 	config.Password = string(gopass.GetPasswdMasked())
@@ -165,7 +167,7 @@ func Ls(args ...string) {
 }
 
 func Pwd() {
-	fmt.Println(driver.GetCurDir() + "\n")
+	fmt.Println(driver.GetCurDir())
 }
 
 func Get(args ...string) {
@@ -185,6 +187,8 @@ func Get(args ...string) {
 		fmt.Fprintf(os.Stderr, "get %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
+
+	time.Sleep(time.Second)
 }
 
 func Put(args ...string) {
@@ -194,7 +198,7 @@ func Put(args ...string) {
 		// TODO
 	case 1:
 		src = args[0]
-		des = ""
+		des = "./"
 	case 2:
 		src = args[0]
 		des = args[1]
@@ -204,6 +208,8 @@ func Put(args ...string) {
 		fmt.Fprintf(os.Stderr, "put %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
+
+	time.Sleep(time.Second)
 }
 
 func Rm(args ...string) {
@@ -248,6 +254,13 @@ func Help(args ...string) {
 	fmt.Println(s)
 }
 
+func Info() {
+	output := "ServiceName: " + conf.Bucket + "\n"
+	output += "Operator:    " + conf.Username + "\n"
+	output += "CurrentDir:  " + conf.CurDir + "\n"
+	fmt.Println(output)
+}
+
 func main() {
 	args := os.Args
 	if len(args) == 1 {
@@ -276,7 +289,11 @@ func main() {
 		os.Exit(-1)
 	}
 
+	defer driver.progress.Stop()
+
 	switch args[1] {
+	case "login":
+		return
 	case "cd":
 		Cd(args[2:]...)
 	case "ls":
@@ -291,5 +308,9 @@ func main() {
 		Pwd()
 	case "mkdir":
 		Mkdir(args[2:]...)
+	case "info":
+		Info()
+	default:
+		Help(args...)
 	}
 }

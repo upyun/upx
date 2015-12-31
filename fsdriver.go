@@ -1,17 +1,19 @@
 // +build linux darwin
 
-package updriver
+package main
 
 import (
 	"errors"
 	"fmt"
-	"github.com/polym/go-sdk/upyun"
+	"github.com/gosuri/uiprogress"
+	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type FsDriver struct {
@@ -21,6 +23,7 @@ type FsDriver struct {
 	maxConc  int
 	up       *upyun.UpYun
 	logger   *log.Logger
+	progress *uiprogress.Progress
 }
 
 func NewFsDriver(bucket, username, password, curDir string, conc int,
@@ -33,12 +36,27 @@ func NewFsDriver(bucket, username, password, curDir string, conc int,
 		maxConc:  conc,
 		logger:   logger,
 	}
-	_, err := driver.up.Usage()
+
+	var err error
+	_, err = driver.up.Usage()
 	if err != nil {
 		return nil, errors.New("username or password is wrong")
 	}
 
+	driver.progress = uiprogress.New()
+	driver.progress.RefreshInterval = time.Millisecond * 100
+	driver.progress.Start()
+
 	return driver, nil
+}
+
+func short(s string) string {
+	l := len(s)
+	if l <= 40 {
+		return s
+	}
+
+	return s[0:17] + "..." + s[l-20:l]
 }
 
 func (dr *FsDriver) ChangeDir(path string) error {
@@ -56,6 +74,79 @@ func (dr *FsDriver) ChangeDir(path string) error {
 }
 func (dr *FsDriver) GetCurDir() string {
 	return dr.curDir
+}
+
+func (dr *FsDriver) getItem(src, des string) error {
+	var dkInfo os.FileInfo
+	var fd *os.File
+	var upInfo *upyun.FileInfo
+	var err error
+	var wg sync.WaitGroup
+	var skip bool = false
+
+	if upInfo, err = dr.up.GetInfo(src); err != nil {
+		return err
+	}
+
+	if dkInfo, err = os.Lstat(des); err == nil && dkInfo.Size() == upInfo.Size {
+		skip = true
+	}
+
+	barSize := upInfo.Size
+	// hack for empty file
+	if barSize == 0 {
+		barSize = 1
+	}
+
+	bar := dr.progress.AddBar(int(barSize)).AppendCompleted()
+	bar.PrependFunc(func(b *uiprogress.Bar) string {
+		status := "WAIT"
+		if skip {
+			status = "SKIP"
+		} else {
+			if b.Current() == int(barSize) {
+				status = "OK"
+			}
+		}
+
+		if err != nil {
+			return fmt.Sprintf("%-40s  ERR %s", short(src), err)
+		}
+		return fmt.Sprintf("%-40s %+4s", short(src), status)
+	})
+
+	wg.Add(1)
+	go func() {
+		v := 0
+		defer wg.Done()
+		for {
+			var verr error
+			time.Sleep(time.Millisecond * 40)
+			if dkInfo, verr = os.Lstat(des); verr == nil {
+				v = int(dkInfo.Size())
+			}
+			bar.Set(v)
+			if v == int(upInfo.Size) {
+				if v == 0 {
+					bar.Set(1)
+				}
+				return
+			}
+		}
+	}()
+
+	if !skip {
+		if fd, err = os.OpenFile(des, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600); err == nil {
+			defer fd.Close()
+			if err = dr.up.Get(src, fd); err != nil {
+				return err
+			}
+		}
+	}
+
+	wg.Wait()
+
+	return err
 }
 
 func (dr *FsDriver) GetItems(src, des string) error {
@@ -102,27 +193,10 @@ func (dr *FsDriver) GetItems(src, des string) error {
 					}
 
 					srcPath = dr.abs(srcPath)
+					desPath = path.Clean(desPath)
 					var err error
-					if err := os.MkdirAll(path.Dir(desPath), os.ModePerm); err == nil {
-						// open a new file
-						if info, err := os.Stat(desPath); err == nil {
-							if upi, err := dr.up.GetInfo(srcPath); err == nil && upi.Size == info.Size() {
-								dr.logger.Printf("GET %s %s EXIST", srcPath, desPath)
-								continue
-							}
-						}
-						var fd *os.File
-						if fd, err = os.OpenFile(desPath,
-							os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600); err == nil {
-							err = dr.up.Get(srcPath, fd)
-							fd.Close()
-						}
-					}
-					if err != nil {
-						// TODO: error
-						dr.logger.Printf("GET %s FAIL %v", srcPath, err)
-					} else {
-						dr.logger.Printf("GET %s %s OK", srcPath, desPath)
+					if err = os.MkdirAll(path.Dir(desPath), os.ModePerm); err == nil {
+						err = dr.getItem(srcPath, desPath)
 					}
 				}
 			}
@@ -152,6 +226,8 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 		infos = append(infos, info)
 	}
 
+	close(ch)
+
 	return infos, nil
 }
 
@@ -164,13 +240,91 @@ func (dr *FsDriver) MakeDir(path string) error {
 	return nil
 }
 
+func (dr *FsDriver) putItem(src, des string) error {
+	var dkInfo os.FileInfo
+	var upInfo *upyun.FileInfo
+	var err error
+	var skip bool = false
+	var wg sync.WaitGroup
+
+	if dkInfo, err = os.Lstat(src); err != nil {
+		return err
+	}
+
+	if upInfo, err = dr.up.GetInfo(des); err == nil && dkInfo.Size() == upInfo.Size {
+		skip = true
+	}
+
+	err = nil
+	barSize := dkInfo.Size()
+	if barSize == 0 {
+		barSize = 1
+	}
+
+	bar := dr.progress.AddBar(int(barSize)).AppendCompleted()
+	bar.PrependFunc(func(b *uiprogress.Bar) string {
+		status := "WAIT"
+		if skip {
+			status = "SKIP"
+		} else {
+			if b.Current() == int(barSize) {
+				status = "OK"
+			}
+		}
+
+		if err != nil {
+			return fmt.Sprintf("%-40s  ERR %s", short(des), err)
+		}
+		return fmt.Sprintf("%-40s %+4s", short(des), status)
+	})
+
+	wg.Add(1)
+	lock := new(sync.Mutex)
+	go func() {
+		defer wg.Done()
+		for {
+			time.Sleep(time.Millisecond * 20)
+			lock.Lock()
+			v := bar.Current()
+			if v == int(barSize) || err != nil {
+				lock.Unlock()
+				return
+			}
+			add := 102400
+			if add+v < int(barSize)*98/100 {
+				bar.Set(add + v)
+			}
+			lock.Unlock()
+		}
+	}()
+
+	if !skip {
+		var fd *os.File
+		if fd, err = os.OpenFile(src, os.O_RDWR, 0600); err == nil {
+			_, err = dr.up.Put(des, fd, false, "", "", nil)
+			fd.Close()
+		}
+	}
+
+	// hack
+	if err == nil {
+		lock.Lock()
+		bar.Set(int(barSize))
+		lock.Unlock()
+	}
+
+	wg.Wait()
+
+	return err
+}
+
 func (dr *FsDriver) PutItems(src, des string) error {
 	var wg sync.WaitGroup
 	ch := make(chan string, dr.maxConc+10)
 	des = dr.abs(des)
 
 	isUpDir, err := dr.IsDir(des)
-	if err != nil && err.Error() != "X-Error-Code=40400001" {
+	if err != nil && err.Error() != "404" {
 		return err
 	}
 
@@ -189,20 +343,19 @@ func (dr *FsDriver) PutItems(src, des string) error {
 		go func() {
 			defer wg.Done()
 			for {
-				fname, more := <-ch
+				srcPath, more := <-ch
 				if !more {
 					return
 				}
 
-				var err error
 				var desPath string
 
 				desPath = des
 				if isUpDir {
 					if srcInfo.IsDir() {
-						desPath += "/" + strings.Replace(fname, src, "", 1)
+						desPath += "/" + strings.Replace(srcPath, src, "", 1)
 					} else {
-						desPath += "/" + filepath.Base(fname)
+						desPath += "/" + filepath.Base(srcPath)
 					}
 				}
 
@@ -212,26 +365,7 @@ func (dr *FsDriver) PutItems(src, des string) error {
 
 				desPath = dr.abs(desPath)
 
-				var fd *os.File
-				if fd, err = os.OpenFile(fname, os.O_RDWR, 0600); err == nil {
-					// check whether is already existed
-					fdInfo, _ := fd.Stat()
-					if info, err := dr.up.GetInfo(desPath); err == nil && info.Size == fdInfo.Size() {
-						dr.logger.Printf("PUT %s -> %s EXIST", fname, desPath)
-						fd.Close()
-						continue
-					} else {
-						_, err = dr.up.Put(desPath, fd, false, "", "", nil)
-						fd.Close()
-					}
-				}
-
-				if err != nil {
-					// TODO error
-					dr.logger.Printf("PUT %s %v FAIL", fname, err)
-				} else {
-					dr.logger.Printf("PUT %s -> %s OK", fname, desPath)
-				}
+				dr.putItem(srcPath, desPath)
 			}
 		}()
 	}
