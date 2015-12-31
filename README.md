@@ -2,11 +2,12 @@
 
 ## Feature Summary
 
-- upload file and directory
-- download file and directory
-- remove file and directory
+- upload file and folder
+- download file and folder
+- remove file and folder
 - make directory
 - list directory
+- support progress bar
 
 
 ## Installation
@@ -27,30 +28,41 @@ $ git clone https://github.com/polym/upx.git
 $ cd upx && make
 ```
 
+or
+
+```
+$ go get github.com/polym/upx
+```
+
 ## Usage
 
 ```
 Usage:
 
-	upx command [arguments]
+        upx command [arguments]
 
 The commands are:
 
-	cd       Change working directory
-	get      Get directory or file from UPYUN
-	login    Log in UPYUN with username, password, bucket
-	logout   Log out UPYUN
-	ls       List directory or file
-	mkdir    Make directory
-	put      Put directory or file to UPYUN
-	pwd      Print working directory
-	rm       Remove one or more directories and files
-	version  Print version
+        cd       Change working directory
+        get      Get directory or file from UPYUN
+        help     Help information
+        info     Current information
+        login    Log in UPYUN with username, password, bucket
+        logout   Log out UPYUN
+        ls       List directory or file
+        mkdir    Make directory
+        put      Put directory or file to UPYUN
+        pwd      Print working directory
+        rm       Remove one or more directories and files
+        version  Print version
 
 ```
 
 
 ## TODO
 
+- list large directory (only list first 200 now)
+- sync local files to UPYUN
 - support for removing all files which are too old
+- more options for command
 - windows support
