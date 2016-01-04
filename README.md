@@ -21,6 +21,8 @@ $ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-
 $ chmod +x /usr/local/bin/upx
 ```
 
+VERSION should be replaced!!
+
 ### Source Compile
 
 ```
