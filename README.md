@@ -15,13 +15,11 @@
 ### Download binary
 
 ```
-$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-VERSION
-$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-VERSION
-$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-i386-VERSION
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.0.2
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.0.2
+$ wget -O /usr/local/bin/upx http://collection.b0.upaiyun.com/softwares/upx/upx-linux-i386-v0.0.2
 $ chmod +x /usr/local/bin/upx
 ```
-
-VERSION should be replaced!!
 
 ### Source Compile
 
