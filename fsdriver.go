@@ -40,7 +40,7 @@ func NewFsDriver(bucket, username, password, curDir string, conc int,
 	var err error
 	_, err = driver.up.Usage()
 	if err != nil {
-		return nil, errors.New("username or password is wrong")
+		return nil, err
 	}
 
 	driver.progress = uiprogress.New()
@@ -218,7 +218,7 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 	}
 
 	ch := dr.up.GetLargeList(path, false)
-	for k := 0; k < 200; k++ {
+	for k := 0; k < 1000; k++ {
 		info, more := <-ch
 		if !more {
 			return infos[0:k], nil
@@ -406,12 +406,13 @@ func (dr *FsDriver) Remove(path string) error {
 					if !more {
 						return
 					}
+					desPath := dr.abs(path + "/" + info.Name)
 					// TODO: retry
-					if err := dr.up.Delete(path + "/" + info.Name); err != nil {
+					if err := dr.up.Delete(desPath); err != nil {
 						//TODO: error
-						dr.logger.Printf("DELETE %s FAIL %v", dr.abs(path+"/"+info.Name), err)
+						dr.logger.Printf("DELETE %s FAIL %v", desPath, err)
 					} else {
-						dr.logger.Printf("DELETE %s OK", dr.abs(path+"/"+info.Name))
+						dr.logger.Printf("DELETE %s OK", desPath)
 					}
 				}
 			}()
