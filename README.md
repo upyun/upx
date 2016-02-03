@@ -4,7 +4,7 @@
 
 - upload file and folder
 - download file and folder
-- remove file and folder
+- remove file and folder, support wildcard, like `upx rm *jpg`
 - make directory
 - list directory
 - support progress bar
