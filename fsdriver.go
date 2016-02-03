@@ -240,7 +240,7 @@ func (driver *FsDriver) uploadDir(src, des string) {
 					return
 				}
 				desPath := desDir + strings.Replace(fname, src, "", 1)
-				driver.uploadFileWithProgress(src+"/"+fname, desPath)
+				driver.uploadFileWithProgress(fname, desPath)
 			}
 		}()
 	}
