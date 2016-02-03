@@ -14,6 +14,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -183,7 +184,7 @@ func Get(args ...string) {
 		des = args[1]
 	}
 
-	if err := driver.GetItems(src, des); err != nil {
+	if err := driver.Downloads(src, des); err != nil {
 		fmt.Fprintf(os.Stderr, "get %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
@@ -204,7 +205,7 @@ func Put(args ...string) {
 		des = args[1]
 	}
 
-	if err := driver.PutItems(src, des); err != nil {
+	if err := driver.Uploads(src, des); err != nil {
 		fmt.Fprintf(os.Stderr, "put %s %s: %v\n\n", src, des, err)
 		os.Exit(-1)
 	}
@@ -212,17 +213,25 @@ func Put(args ...string) {
 	time.Sleep(time.Second)
 }
 
+func StrSplit(s string) (path, wildcard string) {
+	idx := strings.Index(s, "*")
+	if idx == -1 {
+		return s, ""
+	}
+	idx = strings.LastIndex(s[:idx], "/")
+	if idx == -1 {
+		return "./", s
+	}
+	return s[:idx+1], s[idx+1:]
+}
+
 func Rm(args ...string) {
 	for _, path := range args {
-		if ok, err := driver.IsDir(path); err == nil && ok {
-			fmt.Printf("< %s > is a directory. Are you sure to remove it? (y/n) ", path)
-			var ans string
-			if fmt.Scanf("%s", &ans); ans != "y" {
-				continue
-			}
-		}
-		if err := driver.Remove(path); err != nil {
-			fmt.Fprintf(os.Stderr, "remove %s: %v\n\n", path, err)
+		rPath, wildcard := StrSplit(path)
+		if wildcard == "" {
+			driver.Remove(rPath)
+		} else {
+			driver.RemoveMatched(rPath, &MatchConfig{wildcard: wildcard})
 		}
 	}
 }

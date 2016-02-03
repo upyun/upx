@@ -9,7 +9,6 @@ import (
 	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,10 +16,14 @@ import (
 )
 
 type FsDriver struct {
+	// base infomation
 	curDir   string
 	operator string
 	bucket   string
-	maxConc  int
+
+	// config
+	maxConc int
+
 	up       *upyun.UpYun
 	logger   *log.Logger
 	progress *uiprogress.Progress
@@ -50,165 +53,14 @@ func NewFsDriver(bucket, username, password, curDir string, conc int,
 	return driver, nil
 }
 
-func short(s string) string {
-	l := len(s)
-	if l <= 40 {
-		return s
-	}
-
-	return s[0:17] + "..." + s[l-20:l]
-}
-
-func (dr *FsDriver) ChangeDir(path string) error {
-	path = dr.abs(path)
-	if info, err := dr.up.GetInfo(path); err != nil {
-		return err
-	} else {
-		if info.Type == "folder" {
-			dr.curDir = dr.abs(path + "/")
-			fmt.Println(dr.curDir)
-			return nil
-		}
-		return errors.New(fmt.Sprintf("%s: Not a directory", path))
-	}
-}
-func (dr *FsDriver) GetCurDir() string {
-	return dr.curDir
-}
-
-func (dr *FsDriver) getItem(src, des string) error {
-	var dkInfo os.FileInfo
-	var fd *os.File
-	var upInfo *upyun.FileInfo
-	var err error
-	var wg sync.WaitGroup
-	var skip bool = false
-
-	if upInfo, err = dr.up.GetInfo(src); err != nil {
-		return err
-	}
-
-	if dkInfo, err = os.Lstat(des); err == nil && dkInfo.Size() == upInfo.Size {
-		skip = true
-	}
-
-	barSize := upInfo.Size
-	// hack for empty file
-	if barSize == 0 {
-		barSize = 1
-	}
-
-	bar := dr.progress.AddBar(int(barSize)).AppendCompleted()
-	bar.PrependFunc(func(b *uiprogress.Bar) string {
-		status := "WAIT"
-		if skip {
-			status = "SKIP"
-		} else {
-			if b.Current() == int(barSize) {
-				status = "OK"
-			}
-		}
-
-		if err != nil {
-			return fmt.Sprintf("%-40s  ERR %s", short(src), err)
-		}
-		return fmt.Sprintf("%-40s %+4s", short(src), status)
-	})
-
-	wg.Add(1)
-	go func() {
-		v := 0
-		defer wg.Done()
-		for {
-			var verr error
-			time.Sleep(time.Millisecond * 40)
-			if dkInfo, verr = os.Lstat(des); verr == nil {
-				v = int(dkInfo.Size())
-			}
-			bar.Set(v)
-			if v == int(upInfo.Size) {
-				if v == 0 {
-					bar.Set(1)
-				}
-				return
-			}
-		}
-	}()
-
-	if !skip {
-		if fd, err = os.OpenFile(des, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600); err == nil {
-			defer fd.Close()
-			if err = dr.up.Get(src, fd); err != nil {
-				return err
-			}
-		}
-	}
-
-	wg.Wait()
-
-	return err
-}
-
-func (dr *FsDriver) GetItems(src, des string) error {
-	var ch chan *upyun.FileInfo
-
-	src = dr.abs(src)
-	if ok, err := dr.IsDir(src); err != nil {
-		return err
-	} else {
-		if ok {
-			ch = dr.up.GetLargeList(src, true)
-		} else {
-			ch = make(chan *upyun.FileInfo, 10)
-			ch <- &upyun.FileInfo{
-				Type: "file",
-				Name: "",
-			}
-			close(ch)
-		}
-	}
-
-	var wg sync.WaitGroup
-	for w := 0; w < dr.maxConc; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				upInfo, more := <-ch
-				if !more {
-					return
-				}
-
-				if upInfo.Type != "folder" {
-					// if des is a directory, should add basename to des filename
-					srcPath := src
-					desPath := des
-					if upInfo.Name != "" {
-						srcPath += "/" + upInfo.Name
-						desPath += "/" + upInfo.Name
-					} else {
-						if info, err := os.Lstat(des); err == nil && info.IsDir() {
-							desPath += "/" + path.Base(srcPath)
-						}
-					}
-
-					srcPath = dr.abs(srcPath)
-					desPath = path.Clean(desPath)
-					var err error
-					if err = os.MkdirAll(path.Dir(desPath), os.ModePerm); err == nil {
-						err = dr.getItem(srcPath, desPath)
-					}
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-	return nil
+// Make directory on UPYUN
+func (driver *FsDriver) MakeDir(path string) error {
+	path = driver.AbsPath(path)
+	return driver.up.Mkdir(path)
 }
 
 func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
-	path = dr.abs(path)
+	path = dr.AbsPath(path)
 	if info, err := dr.up.GetInfo(path); err != nil {
 		return nil, err
 	} else {
@@ -231,37 +83,25 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 	return infos, nil
 }
 
-func (dr *FsDriver) MakeDir(path string) error {
-	path = dr.abs(path)
-	fmt.Println(path)
-	if err := dr.up.Mkdir(path); err != nil {
+// Download <src> from UPYUN to <des>. <src> <des> must be file-path
+func (driver *FsDriver) dlFile(src, des string) error {
+	// Make dir
+	if err := os.MkdirAll(filepath.Dir(des), os.ModePerm); err != nil {
 		return err
 	}
-	return nil
+	fd, err := os.Create(des)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	_, err = driver.up.Get(src, fd)
+	return err
 }
 
-func (dr *FsDriver) putItem(src, des string) error {
-	var dkInfo os.FileInfo
-	var upInfo *upyun.FileInfo
+func (driver *FsDriver) NewProgressBar(barSize int, skip bool,
+	f func(src, des string) error, srcPath, desPath string) *uiprogress.Bar {
 	var err error
-	var skip bool = false
-	var wg sync.WaitGroup
-
-	if dkInfo, err = os.Lstat(src); err != nil {
-		return err
-	}
-
-	if upInfo, err = dr.up.GetInfo(des); err == nil && dkInfo.Size() == upInfo.Size {
-		skip = true
-	}
-
-	err = nil
-	barSize := dkInfo.Size()
-	if barSize == 0 {
-		barSize = 1
-	}
-
-	bar := dr.progress.AddBar(int(barSize)).AppendCompleted()
+	bar := driver.progress.AddBar(barSize).AppendCompleted()
 	bar.PrependFunc(func(b *uiprogress.Bar) string {
 		status := "WAIT"
 		if skip {
@@ -273,178 +113,305 @@ func (dr *FsDriver) putItem(src, des string) error {
 		}
 
 		if err != nil {
-			return fmt.Sprintf("%-40s  ERR %s", short(des), err)
+			return fmt.Sprintf("%-40s  ERR %s", driver.short(desPath), err)
 		}
-		return fmt.Sprintf("%-40s %+4s", short(des), status)
+		return fmt.Sprintf("%-40s %+4s", driver.short(desPath), status)
 	})
 
-	wg.Add(1)
-	lock := new(sync.Mutex)
 	go func() {
-		defer wg.Done()
-		for {
-			time.Sleep(time.Millisecond * 20)
-			lock.Lock()
-			v := bar.Current()
-			if v == int(barSize) || err != nil {
-				lock.Unlock()
-				return
-			}
-			add := 102400
-			if add+v < int(barSize)*98/100 {
-				bar.Set(add + v)
-			}
-			lock.Unlock()
-		}
+		err = f(srcPath, desPath)
+		bar.Set(bar.Total)
 	}()
 
-	if !skip {
-		var fd *os.File
-		if fd, err = os.OpenFile(src, os.O_RDWR, 0600); err == nil {
-			_, err = dr.up.Put(des, fd, false, "", "", nil)
-			fd.Close()
-		}
-	}
-
-	// hack
-	if err == nil {
-		lock.Lock()
-		bar.Set(int(barSize))
-		lock.Unlock()
-	}
-
-	wg.Wait()
-
-	return err
+	return bar
 }
 
-func (dr *FsDriver) PutItems(src, des string) error {
+func (driver *FsDriver) dlFileWithProgress(src, des string) {
+	src = driver.AbsPath(src)
+
+	barSize := 1
+	upInfo, err := driver.up.GetInfo(src)
+	if err == nil && upInfo.Size != 0 {
+		barSize = int(upInfo.Size)
+	}
+
+	skip := false
+	bar := driver.NewProgressBar(barSize, skip, driver.dlFile, src, des)
+
+	for {
+		time.Sleep(time.Millisecond * 40)
+		if dkInfo, e := os.Lstat(des); e == nil {
+			v := int(dkInfo.Size())
+			if v == int(upInfo.Size) {
+				bar.Set(bar.Total)
+				break
+			}
+			bar.Set(v)
+		}
+	}
+}
+
+func (driver *FsDriver) dlDir(src, des string) {
 	var wg sync.WaitGroup
-	ch := make(chan string, dr.maxConc+10)
-	des = dr.abs(des)
+	ups := driver.up.GetLargeList(src, true)
+	desDir := des + "/" + filepath.Base(src) + "/"
 
-	isUpDir, err := dr.IsDir(des)
-	if err != nil && err.Error() != "404" {
-		return err
-	}
-
-	srcInfo, err := os.Lstat(src)
-	if err != nil {
-		return err
-	}
-
-	// upload items to the directory which doesn't exist
-	if strings.HasSuffix(des, "/") {
-		isUpDir = true
-	}
-
-	for w := 0; w < dr.maxConc; w++ {
-		wg.Add(1)
+	wg.Add(driver.maxConc)
+	for w := 0; w < driver.maxConc; w++ {
 		go func() {
 			defer wg.Done()
 			for {
-				srcPath, more := <-ch
+				upInfo, more := <-ups
+				if !more {
+					break
+				}
+				if upInfo.Type == "file" {
+					driver.dlFileWithProgress(src+"/"+upInfo.Name,
+						desDir+upInfo.Name)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+// Download <src> on UPYUN to <des> in local disk
+// <src>, <des> are files or <src>, <des> are folders.
+func (driver *FsDriver) Downloads(src, des string) error {
+	srcPath := driver.AbsPath(src)
+	if desPath, ok := driver.parseDiskDes(srcPath, des); ok {
+		if driver.IsUPDir(srcPath) {
+			driver.dlDir(srcPath, desPath)
+		} else {
+			driver.dlFileWithProgress(srcPath, desPath)
+		}
+		return nil
+	} else {
+		return errors.New("no support download folder to file.")
+	}
+}
+
+func (driver *FsDriver) uploadFile(src, des string) error {
+	if fd, err := os.Open(src); err == nil {
+		_, err = driver.up.Put(des, fd, false, nil)
+		return err
+	} else {
+		return err
+	}
+}
+
+func (driver *FsDriver) uploadFileWithProgress(src, des string) {
+	var dkInfo os.FileInfo
+	var err error
+	des = driver.AbsPath(des)
+
+	barSize := 1
+	if dkInfo, err = os.Lstat(src); err == nil && dkInfo.Size() != 0 {
+		barSize = int(dkInfo.Size())
+	}
+
+	skip := false
+	bar := driver.NewProgressBar(barSize, skip, driver.uploadFile, src, des)
+	for {
+		time.Sleep(time.Millisecond * 20)
+		v := bar.Current()
+		if v == int(barSize) {
+			return
+		}
+		add := 102400
+		if add+v < int(barSize)*98/100 {
+			bar.Set(add + v)
+		}
+	}
+}
+
+func (driver *FsDriver) uploadDir(src, des string) {
+	var wg sync.WaitGroup
+	fnames := make(chan string, driver.maxConc)
+	desDir := des + "/" + filepath.Base(src) + "/"
+	wg.Add(driver.maxConc)
+	for w := 0; w < driver.maxConc; w++ {
+		go func() {
+			defer wg.Done()
+			for {
+				fname, more := <-fnames
 				if !more {
 					return
 				}
-
-				var desPath string
-
-				desPath = des
-				if isUpDir {
-					if srcInfo.IsDir() {
-						desPath += "/" + strings.Replace(srcPath, src, "", 1)
-					} else {
-						desPath += "/" + filepath.Base(srcPath)
-					}
-				}
-
-				if strings.HasSuffix(desPath, "/") {
-					panic(fmt.Sprintf("desPath should not HasSuffix with / %s", desPath))
-				}
-
-				desPath = dr.abs(desPath)
-
-				dr.putItem(srcPath, desPath)
+				desPath := desDir + strings.Replace(fname, src, "", 1)
+				driver.uploadFileWithProgress(src+"/"+fname, desPath)
 			}
 		}()
 	}
 
 	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
-			ch <- path
+			fnames <- path
 		}
 		return nil
 	})
 
-	close(ch)
+	close(fnames)
 	wg.Wait()
-
-	return nil
 }
 
-func (dr *FsDriver) Remove(path string) error {
-	path = dr.abs(path)
-	ok, err := dr.IsDir(path)
-	if err != nil {
-		return err
-	}
-
-	if ok {
-		// remove all items in directory
-		var wg sync.WaitGroup
-		ch := dr.up.GetLargeList(path, true)
-		// UPYUN Delete Limit Rate
-		maxWorker := 1
-
-		for w := 0; w < maxWorker; w++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					info, more := <-ch
-					if !more {
-						return
-					}
-					desPath := dr.abs(path + "/" + info.Name)
-					// TODO: retry
-					if err := dr.up.Delete(desPath); err != nil {
-						//TODO: error
-						dr.logger.Printf("DELETE %s FAIL %v", desPath, err)
-					} else {
-						dr.logger.Printf("DELETE %s OK", desPath)
-					}
-				}
-			}()
+// Upload <src> in local disk to <des> on UPYUN.
+func (driver *FsDriver) Uploads(src, des string) error {
+	desPath := driver.AbsPath(des)
+	if desPath, ok := driver.parseUPYUNDes(src, desPath); ok {
+		if driver.IsDiskDir(src) {
+			driver.uploadDir(src, desPath)
+		} else {
+			driver.uploadFileWithProgress(src, desPath)
 		}
-
-		wg.Wait()
-	}
-
-	if err = dr.up.Delete(path); err != nil {
-		dr.logger.Printf("DELETE %s FAIL %v", path, err)
+		return nil
 	} else {
-		dr.logger.Printf("DELETE %s OK", path)
+		return errors.New("no support upload folder to file.")
 	}
+}
 
-	// TODO: more information
+func (driver *FsDriver) rmFile(path string) {
+	path = driver.AbsPath(path)
+	err := driver.up.Delete(path)
+	if err != nil {
+		driver.logger.Printf("DELETE %s FAIL %v", path, err)
+	} else {
+		driver.logger.Printf("DELETE %s OK", path)
+	}
+}
+
+func (driver *FsDriver) rmDir(path string) {
+	// more friendly
+	ups := driver.up.GetLargeList(path, true)
+	for {
+		upInfo, more := <-ups
+		if !more {
+			break
+		}
+		driver.rmFile(path + "/" + upInfo.Name)
+	}
+	driver.rmFile(path)
+}
+
+func (driver *FsDriver) Remove(path string) {
+	path = driver.AbsPath(path)
+	if driver.IsUPDir(path) {
+		msg := fmt.Sprintf("\033[33m< %s > is a directory. ", path)
+		msg += "Are you sure to remove it? (y/n) \033[0m"
+		fmt.Printf("%s", msg)
+		var ans string
+		if fmt.Scanf("%s", &ans); ans != "y" {
+			return
+		}
+		driver.rmDir(path)
+	} else {
+		driver.rmFile(path)
+	}
+}
+
+// path MUST be a folder
+func (driver *FsDriver) RemoveMatched(path string, mc *MatchConfig) {
+	path = driver.AbsPath(path)
+	upInfos := driver.up.GetLargeList(path, false)
+	for {
+		upInfo, more := <-upInfos
+		if !more {
+			return
+		}
+		if mc.IsMatched(upInfo) {
+			driver.Remove(path + "/" + upInfo.Name)
+		}
+	}
+}
+
+// Get current working diretory
+func (driver *FsDriver) GetCurDir() string {
+	return driver.curDir
+}
+
+// Change working directory
+func (driver *FsDriver) ChangeDir(path string) error {
+	rPath := driver.AbsPath(path)
+	if !driver.IsUPDir(rPath) {
+		return errors.New(fmt.Sprintf("%s: Not a directory", rPath))
+	}
+	driver.curDir = rPath
 	return nil
 }
 
-func (dr *FsDriver) IsDir(path string) (bool, error) {
-	path = dr.abs(path)
-	if strings.HasSuffix(path, "/") {
-		path = path[0 : len(path)-1]
+func (driver *FsDriver) MaybeUPDir(path string) bool {
+	if driver.IsUPDir(path) || strings.HasSuffix(path, "/") {
+		return true
 	}
-	if info, err := dr.up.GetInfo(path); err != nil || info.Type != "folder" {
-		return false, err
-	}
-	return true, nil
+	return false
 }
 
-func (dr *FsDriver) abs(path string) string {
+func (driver *FsDriver) IsUPDir(path string) bool {
+	upInfo, err := driver.up.GetInfo(path)
+	if err == nil {
+		if upInfo.Type == "folder" {
+			return true
+		}
+	}
+	return false
+}
+
+func (driver *FsDriver) MaybeDiskDir(path string) bool {
+	if driver.IsDiskDir(path) || strings.HasSuffix(path, "/") {
+		return true
+	}
+	return false
+}
+
+func (driver *FsDriver) IsDiskDir(path string) bool {
+	dkInfo, err := os.Lstat(path)
+	if err == nil {
+		if dkInfo.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+func (driver *FsDriver) parseDiskDes(src, des string) (string, bool) {
+	if driver.IsUPDir(src) {
+		if driver.MaybeDiskDir(des) {
+			return des, true
+		}
+		return "", false
+	}
+	if driver.MaybeDiskDir(des) {
+		des += "/" + filepath.Base(src)
+	}
+	return des, true
+}
+
+func (driver *FsDriver) parseUPYUNDes(src, des string) (string, bool) {
+	if driver.IsDiskDir(src) {
+		if driver.MaybeUPDir(des) {
+			return des, true
+		}
+		return "", false
+	}
+	if driver.MaybeUPDir(des) {
+		des += "/" + filepath.Base(src)
+	}
+	return des, true
+}
+
+func (dr *FsDriver) short(s string) string {
+	l := len(s)
+	if l <= 40 {
+		return s
+	}
+
+	return s[0:17] + "..." + s[l-20:l]
+}
+
+func (driver *FsDriver) AbsPath(path string) string {
 	if path[0] != '/' {
-		path = dr.curDir + "/" + path
+		path = driver.curDir + "/" + path
 	}
 
 	if strings.HasSuffix(path, "/.") || strings.HasSuffix(path, "/..") {
@@ -477,18 +444,3 @@ func (dr *FsDriver) abs(path string) string {
 	}
 	return "/" + strings.Join(parts[0:size], "/")
 }
-
-//func (dr *FsDriver) limitConcRun(f func(ch chan interface{}, args ...string) error, args ...string) error {
-//	var wg sync.WaitGroup
-//	for w := 0; w < dr.maxConc; w++ {
-//		wg.Add(1)
-//		go func() {
-//			defer wg.Done()
-//			sargs := make([]string, len(args))
-//			for k, arg := range args {
-//				sargs[k] = arg
-//			}
-//		}()
-//	}
-//	wg.Wait()
-//}
