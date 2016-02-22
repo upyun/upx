@@ -8,6 +8,7 @@
 - make directory
 - list directory
 - support progress bar
+- support multi-users **NEW**
 
 
 ## Installation
@@ -54,6 +55,8 @@ The commands are:
         put      Put directory or file to UPYUN
         pwd      Print working directory
         rm       Remove one or more directories and files
+        sevices  List all services
+        switch   Switch service
         version  Print version
 
 ```

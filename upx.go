@@ -3,13 +3,11 @@
 package main
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/jehiah/go-strftime"
 	"github.com/upyun/go-sdk/upyun"
-	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
@@ -18,15 +16,9 @@ import (
 	"time"
 )
 
-type Config struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Bucket   string `json:"bucket"`
-	CurDir   string `sjon:"curdir"`
-}
-
 var (
 	conf    *Config
+	user    *userInfo
 	driver  *FsDriver
 	version string
 
@@ -40,6 +32,8 @@ var (
 		"ls":      "List directory or file",
 		"login":   "Log in UPYUN with username, password, bucket",
 		"logout":  "Log out UPYUN",
+		"switch":  "Switch service",
+		"sevices": "List all services",
 		"put":     "Put directory or file to UPYUN",
 		"get":     "Get directory or file from UPYUN",
 		"rm":      "Remove one or more directories and files",
@@ -55,74 +49,69 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
-func loadConfig() (*Config, error) {
-	var err error
-	var fd *os.File
-	var b []byte
-	var config Config
-
-	if fd, err = os.Open(confname); err == nil {
-		defer fd.Close()
-		if b, err = ioutil.ReadAll(fd); err == nil {
-			if b, err = base64.StdEncoding.DecodeString(string(b)); err == nil {
-				err = json.Unmarshal(b, &config)
-			}
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
-}
-
-func saveConfig(conf *Config) error {
-	var err error
-	var fd *os.File
-	var b []byte
-	var s string
-
-	if fd, err = os.OpenFile(confname, os.O_RDWR|os.O_TRUNC|os.O_CREATE,
-		0600); err == nil {
-		defer fd.Close()
-		if b, err = json.Marshal(conf); err == nil {
-			s = base64.StdEncoding.EncodeToString(b)
-			_, err = fd.WriteString(s)
-		}
-	}
-
-	return err
-}
-
 func NewHandler() (driver *FsDriver, err error) {
-	if conf, err = loadConfig(); err != nil {
-		return nil, err
-	}
-
+	user = conf.GetCurUser()
 	logger := log.New(os.Stdout, "", 0)
-	return NewFsDriver(conf.Bucket, conf.Username, conf.Password, conf.CurDir, 10, logger)
+	if user == nil {
+		return nil, errors.New("no user")
+	}
+	return NewFsDriver(user.Bucket, user.Username, user.Password, user.CurDir, 10, logger)
+}
+
+func SaveConfig() {
+	if err := conf.Save(confname); err != nil {
+		fmt.Fprintf(os.Stderr, "save config file:%v\n\n", err)
+		os.Exit(-1)
+	}
 }
 
 func Login(args ...string) {
-	config := &Config{CurDir: "/"}
+	user := &userInfo{CurDir: "/"}
+	if len(args) == 3 {
+		user.Bucket = args[0]
+		user.Username = args[1]
+		user.Password = args[2]
+	} else {
+		fmt.Printf("ServiceName: ")
+		fmt.Scanf("%s\n", &user.Bucket)
+		fmt.Printf("Operator: ")
+		fmt.Scanf("%s\n", &user.Username)
+		fmt.Printf("Password: ")
+		user.Password = string(gopass.GetPasswdMasked())
+	}
 
-	fmt.Printf("ServiceName: ")
-	fmt.Scanf("%s\n", &config.Bucket)
-	fmt.Printf("Operator: ")
-	fmt.Scanf("%s\n", &config.Username)
-	fmt.Printf("Password: ")
-	config.Password = string(gopass.GetPasswdMasked())
+	conf.UpdateUserInfo(user)
+}
 
-	if err := saveConfig(config); err != nil {
-		fmt.Fprintf(os.Stderr, "login: %v\n\n", err)
+func Logout() {
+	var err error
+	if err = conf.RemoveBucket(); err == nil {
+		if len(conf.Users) == 0 {
+			err = os.Remove(confname)
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "logout: %v\n\n", err)
 		os.Exit(-1)
 	}
 }
 
-func Logout() {
-	if err := os.Remove(confname); err != nil {
-		fmt.Fprintf(os.Stderr, "logout: %v\n\n", err)
-		os.Exit(-1)
+func SwitchSrv(args ...string) {
+	if len(args) > 0 {
+		bucket := args[0]
+		if err := conf.SwitchBucket(bucket); err != nil {
+			fmt.Println("switch:", err)
+		}
+	}
+}
+
+func ListSrvs() {
+	for k, v := range conf.Users {
+		if k == conf.Idx {
+			fmt.Printf("* \033[33m%s\033[0m\n", v.Bucket)
+		} else {
+			fmt.Printf("  %s\n", v.Bucket)
+		}
 	}
 }
 
@@ -134,8 +123,8 @@ func Cd(args ...string) {
 
 	var err error
 	if err = driver.ChangeDir(path); err == nil {
-		conf.CurDir = driver.GetCurDir()
-		err = saveConfig(conf)
+		user.CurDir = driver.GetCurDir()
+		err = conf.Save(confname)
 	}
 
 	if err != nil {
@@ -159,7 +148,7 @@ func Ls(args ...string) {
 			if v.Type != "folder" {
 				s = "-rw-rw-rw-"
 			}
-			s += fmt.Sprintf(" 1 %s %s %12d", conf.Username, conf.Bucket, v.Size)
+			s += fmt.Sprintf(" 1 %s %s %12d", user.Username, user.Bucket, v.Size)
 			s += " " + strftime.Format("%b %d %H:%M", v.Time)
 			s += " " + v.Name
 			fmt.Println(s)
@@ -264,9 +253,9 @@ func Help(args ...string) {
 }
 
 func Info() {
-	output := "ServiceName: " + conf.Bucket + "\n"
-	output += "Operator:    " + conf.Username + "\n"
-	output += "CurrentDir:  " + conf.CurDir + "\n"
+	output := "ServiceName: " + user.Bucket + "\n"
+	output += "Operator:    " + user.Username + "\n"
+	output += "CurrentDir:  " + user.CurDir + "\n"
 	fmt.Println(output)
 }
 
@@ -277,15 +266,24 @@ func main() {
 		os.Exit(-1)
 	}
 
+	conf = &Config{}
+	conf.Load(confname)
+	defer SaveConfig()
+
 	switch args[1] {
 	case "login":
-		Login()
+		Login(args[2:]...)
 	case "logout":
 		Logout()
 		return
 	case "help":
 		Help(args...)
 		return
+	case "services":
+		ListSrvs()
+		return
+	case "switch":
+		SwitchSrv(args[2:]...)
 	case "version":
 		fmt.Printf("%s version %s %s/%s\n\n", args[0], version, runtime.GOOS, runtime.GOARCH)
 		return
@@ -301,7 +299,7 @@ func main() {
 	defer driver.progress.Stop()
 
 	switch args[1] {
-	case "login":
+	case "login", "switch":
 		return
 	case "cd":
 		Cd(args[2:]...)

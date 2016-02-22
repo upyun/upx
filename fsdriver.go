@@ -283,13 +283,18 @@ func (driver *FsDriver) rmFile(path string) {
 
 func (driver *FsDriver) rmDir(path string) {
 	// more friendly
-	ups := driver.up.GetLargeList(path, true)
+	path = driver.AbsPath(path)
+	ups := driver.up.GetLargeList(path, false)
 	for {
 		upInfo, more := <-ups
 		if !more {
 			break
 		}
-		driver.rmFile(path + "/" + upInfo.Name)
+		if upInfo.Type == "file" {
+			driver.rmFile(path + "/" + upInfo.Name)
+		} else {
+			driver.rmDir(path + "/" + upInfo.Name)
+		}
 	}
 	driver.rmFile(path)
 }
