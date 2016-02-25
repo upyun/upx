@@ -26,20 +26,20 @@ var (
 	confname = os.Getenv("HOME") + "/.upx.cfg"
 
 	cmdDesc = map[string]string{
-		"cd":      "Change working directory",
-		"pwd":     "Print working directory",
-		"mkdir":   "Make directory",
-		"ls":      "List directory or file",
-		"login":   "Log in UPYUN with username, password, bucket",
-		"logout":  "Log out UPYUN",
-		"switch":  "Switch service",
-		"sevices": "List all services",
-		"put":     "Put directory or file to UPYUN",
-		"get":     "Get directory or file from UPYUN",
-		"rm":      "Remove one or more directories and files",
-		"version": "Print version",
-		"help":    "Help information",
-		"info":    "Current information",
+		"cd":       "Change working directory",
+		"pwd":      "Print working directory",
+		"mkdir":    "Make directory",
+		"ls":       "List directory or file",
+		"login":    "Log in UPYUN with username, password, bucket",
+		"logout":   "Log out UPYUN",
+		"switch":   "Switch service",
+		"services": "List all services",
+		"put":      "Put directory or file to UPYUN",
+		"get":      "Get directory or file from UPYUN",
+		"rm":       "Remove one or more directories and files",
+		"version":  "Print version",
+		"help":     "Help information",
+		"info":     "Current information",
 	}
 )
 
