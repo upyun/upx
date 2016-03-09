@@ -77,7 +77,10 @@ func Login(args ...string) {
 		fmt.Printf("Operator: ")
 		fmt.Scanf("%s\n", &user.Username)
 		fmt.Printf("Password: ")
-		user.Password = string(gopass.GetPasswdMasked())
+		b, err := gopass.GetPasswdMasked()
+		if err == nil {
+			user.Password = string(b)
+		}
 	}
 
 	conf.UpdateUserInfo(user)
