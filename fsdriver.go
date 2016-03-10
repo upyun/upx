@@ -128,6 +128,7 @@ func (driver *FsDriver) NewProgressBar(barSize int, skip bool,
 
 func (driver *FsDriver) dlFileWithProgress(src, des string) {
 	src = driver.AbsPath(src)
+	des, _ = filepath.Abs(des)
 
 	barSize := 1
 	upInfo, err := driver.up.GetInfo(src)
@@ -138,7 +139,7 @@ func (driver *FsDriver) dlFileWithProgress(src, des string) {
 	skip := false
 	bar := driver.NewProgressBar(barSize, skip, driver.dlFile, src, des)
 
-	for {
+	for upInfo != nil && bar.Current() != bar.Total {
 		time.Sleep(time.Millisecond * 40)
 		if dkInfo, e := os.Lstat(des); e == nil {
 			v := int(dkInfo.Size())
@@ -239,7 +240,8 @@ func (driver *FsDriver) uploadDir(src, des string) {
 				if !more {
 					return
 				}
-				desPath := desDir + strings.Replace(fname, src, "", 1)
+
+				desPath := desDir + strings.TrimPrefix(fname, src)
 				driver.uploadFileWithProgress(fname, desPath)
 			}
 		}()
@@ -261,7 +263,7 @@ func (driver *FsDriver) Uploads(src, des string) error {
 	desPath := driver.AbsPath(des)
 	if desPath, ok := driver.parseUPYUNDes(src, desPath); ok {
 		if driver.IsDiskDir(src) {
-			driver.uploadDir(src, desPath)
+			driver.uploadDir(src+"/", desPath)
 		} else {
 			driver.uploadFileWithProgress(src, desPath)
 		}
