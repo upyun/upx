@@ -70,10 +70,10 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 	}
 
 	ch := dr.up.GetLargeList(path, false)
-	for k := 0; k < 1000; k++ {
+	for {
 		info, more := <-ch
 		if !more {
-			return infos[0:k], nil
+			return infos, nil
 		}
 		infos = append(infos, info)
 	}
