@@ -1,6 +1,7 @@
 VER= $(shell cat VERSION)
 
 all:
+	- go get -u
 	go build -o upx -ldflags "-X main.version=$(VER)" .
 
 release:
