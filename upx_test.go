@@ -24,8 +24,6 @@ func init() {
 	path := os.Getenv("PATH")
 	pwd, _ := os.Getwd()
 
-	fmt.Println(username, password, bucket)
-
 	os.Setenv("PATH", path+":"+pwd)
 }
 

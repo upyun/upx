@@ -9,4 +9,6 @@ install:
 
 script:
     - make && make test
+
+after_success:
     - echo $UPX_CONFIG > $HOME/.upx.cfg && make release && make upload

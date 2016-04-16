@@ -15,13 +15,16 @@ var cmds = []string{
 	"ls", "rm", "switch", "info", "mkdir", "services",
 }
 
+var version = "v0.1.2"
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "upx"
 	app.Usage = "a tool for managing files in UPYUN"
 	app.Author = "Hongbo.Mo"
 	app.Email = "zjutpolym@gmail.com"
-	app.Version = fmt.Sprintf("v0.1.1 %s/%s", runtime.GOOS, runtime.GOARCH)
+	app.Version = fmt.Sprintf("%s %s/%s %s", version, runtime.GOOS,
+		runtime.GOARCH, runtime.Version())
 	app.Commands = make([]cli.Command, 0)
 
 	sort.Strings(cmds)
