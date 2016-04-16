@@ -2,10 +2,11 @@ language: go
 
 go:
     - 1.5
+    - 1.6
 
 install:
     - go get -v
-    - echo $UPX_CONFIG > $HOME/.upx.cfg
 
 script:
-    - make && make release && make upload
+    - make && make test
+    - echo $UPX_CONFIG > $HOME/.upx.cfg && make release && make upload
