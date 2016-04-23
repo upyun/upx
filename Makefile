@@ -1,7 +1,7 @@
 VER= $(shell cat VERSION)
 
 all:
-	go get -d
+	go get -v -d
 	go build -o upx
 
 release:
@@ -9,7 +9,7 @@ release:
 	GOOS=linux  GOARCH=386  go build -o upx-linux-i386-$(VER) .
 	GOOS=darwin GOARCH=amd64 go build -o upx-darwin-amd64-$(VER) .
 
-upload:
+upload: release
 	./upx pwd
 	./upx put upx-linux-amd64-$(VER) /softwares/upx/
 	./upx put upx-linux-i386-$(VER)  /softwares/upx/
