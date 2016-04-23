@@ -39,12 +39,25 @@ func main() {
 						fmt.Println("Log in first.")
 						os.Exit(-1)
 					}
-					cm.Func(c.Args())
+					opts := make(map[string]interface{})
+					for _, v := range c.FlagNames() {
+						opts[v] = c.IsSet(v)
+					}
+					cm.Func(c.Args(), opts)
 				},
 			}
 			if cm.Alias != "" {
 				Cmd.Aliases = []string{cm.Alias}
 			}
+			if cm.Flags != nil {
+				Cmd.Flags = []cli.Flag{}
+				for k, v := range cm.Flags {
+					Cmd.Flags = append(Cmd.Flags, cli.BoolFlag{
+						Name: k, Usage: v,
+					})
+				}
+			}
+
 			app.Commands = append(app.Commands, Cmd)
 		}
 	}

@@ -15,7 +15,8 @@ import (
 type Cmd struct {
 	Desc  string
 	Alias string
-	Func  func(args []string)
+	Func  func(args []string, opts map[string]interface{})
+	Flags map[string]string
 }
 
 var (
@@ -27,21 +28,28 @@ var (
 	confname = os.Getenv("HOME") + "/.upx.cfg"
 )
 
+var (
+	RmFlags = map[string]string{
+		"d": "only remove directories",
+		"a": "remove files, directories and their contents recursively, never prompt",
+	}
+)
+
 var CmdMap = map[string]Cmd{
-	"login":    {"Log in UPYUN with service_name, username, password", "", Login},
-	"logout":   {"Log out UPYUN", "", Logout},
-	"cd":       {"Change working directory", "", Cd},
-	"pwd":      {"Print working directory", "", Pwd},
-	"mkdir":    {"Make directory", "mk", Mkdir},
-	"ls":       {"List directory or file", "", Ls},
-	"switch":   {"Switch service", "sw", SwitchSrv},
-	"services": {"List all services", "sv", ListSrvs},
-	"put":      {"Put directory or file to UPYUN", "", Put},
-	"get":      {"Get directory or file from UPYUN", "", Get},
-	"rm":       {"Remove one or more directories and files", "", Rm},
-	"version":  {"Print version", "", nil},    // deprecated
-	"help":     {"Help information", "", nil}, // deprecated
-	"info":     {"Current information", "i", Info},
+	"login":    {"Log in UPYUN with service_name, username, password", "", Login, nil},
+	"logout":   {"Log out UPYUN", "", Logout, nil},
+	"cd":       {"Change working directory", "", Cd, nil},
+	"pwd":      {"Print working directory", "", Pwd, nil},
+	"mkdir":    {"Make directory", "mk", Mkdir, nil},
+	"ls":       {"List directory or file", "", Ls, nil},
+	"switch":   {"Switch service", "sw", SwitchSrv, nil},
+	"services": {"List all services", "sv", ListSrvs, nil},
+	"put":      {"Put directory or file to UPYUN", "", Put, nil},
+	"get":      {"Get directory or file from UPYUN", "", Get, nil},
+	"rm":       {"Remove one or more directories and files", "", Rm, RmFlags},
+	"version":  {"Print version", "", nil, nil},    // deprecated
+	"help":     {"Help information", "", nil, nil}, // deprecated
+	"info":     {"Current information", "i", Info, nil},
 }
 
 type ByName []*upyun.FileInfo
@@ -50,7 +58,7 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
-func Login(args []string) {
+func Login(args []string, opts map[string]interface{}) {
 	user := &userInfo{CurDir: "/"}
 	if len(args) == 3 {
 		user.Bucket = args[0]
@@ -79,7 +87,7 @@ func Login(args []string) {
 	conf.Save(confname)
 }
 
-func Logout(args []string) {
+func Logout(args []string, opts map[string]interface{}) {
 	var err error
 	if err = conf.RemoveBucket(); err == nil {
 		if len(conf.Users) == 0 {
@@ -94,7 +102,7 @@ func Logout(args []string) {
 	conf.Save(confname)
 }
 
-func SwitchSrv(args []string) {
+func SwitchSrv(args []string, opts map[string]interface{}) {
 	if len(args) > 0 {
 		bucket := args[0]
 		if err := conf.SwitchBucket(bucket); err != nil {
@@ -105,7 +113,7 @@ func SwitchSrv(args []string) {
 	}
 }
 
-func ListSrvs(args []string) {
+func ListSrvs(args []string, opts map[string]interface{}) {
 	for k, v := range conf.Users {
 		if k == conf.Idx {
 			fmt.Printf("* \033[33m%s\033[0m\n", v.Bucket)
@@ -115,7 +123,7 @@ func ListSrvs(args []string) {
 	}
 }
 
-func Cd(args []string) {
+func Cd(args []string, opts map[string]interface{}) {
 	path := "/"
 	if len(args) > 0 {
 		path = args[0]
@@ -133,7 +141,7 @@ func Cd(args []string) {
 	}
 }
 
-func Ls(args []string) {
+func Ls(args []string, opts map[string]interface{}) {
 	path := driver.GetCurDir()
 	if len(args) > 0 {
 		path = args[0]
@@ -156,11 +164,11 @@ func Ls(args []string) {
 	}
 }
 
-func Pwd(args []string) {
+func Pwd(args []string, opts map[string]interface{}) {
 	fmt.Println(driver.GetCurDir())
 }
 
-func Get(args []string) {
+func Get(args []string, opts map[string]interface{}) {
 	var src, des string
 	switch len(args) {
 	case 0:
@@ -181,7 +189,7 @@ func Get(args []string) {
 	time.Sleep(time.Second)
 }
 
-func Put(args []string) {
+func Put(args []string, opts map[string]interface{}) {
 	var src, des string
 	switch len(args) {
 	case 0:
@@ -214,18 +222,24 @@ func StrSplit(s string) (path, wildcard string) {
 	return s[:idx+1], s[idx+1:]
 }
 
-func Rm(args []string) {
+func Rm(args []string, opts map[string]interface{}) {
 	for _, path := range args {
 		rPath, wildcard := StrSplit(path)
-		if wildcard == "" {
-			driver.Remove(rPath)
-		} else {
-			driver.RemoveMatched(rPath, &MatchConfig{wildcard: wildcard})
+		match := &MatchConfig{
+			wildcard: wildcard,
+			itemType: "file",
 		}
+		if v, exists := opts["d"]; exists && v.(bool) {
+			match.itemType = "folder"
+		}
+		if v, exists := opts["a"]; exists && v.(bool) {
+			match.itemType = ""
+		}
+		driver.RemoveMatched(rPath, match)
 	}
 }
 
-func Mkdir(args []string) {
+func Mkdir(args []string, opts map[string]interface{}) {
 	for _, path := range args {
 		if err := driver.MakeDir(path); err != nil {
 			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n\n", path, err)
@@ -233,7 +247,7 @@ func Mkdir(args []string) {
 	}
 }
 
-func Info(args []string) {
+func Info(args []string, opts map[string]interface{}) {
 	output := "ServiceName: " + user.Bucket + "\n"
 	output += "Operator:    " + user.Username + "\n"
 	output += "CurrentDir:  " + user.CurDir + "\n"

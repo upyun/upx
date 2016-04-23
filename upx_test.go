@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -150,6 +151,19 @@ func TestSwitch(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to upx")
 		t.Fail()
+	}
+}
+
+func TestRmDir(t *testing.T) {
+	b, err := upx("rm", "d", tmpPath)
+	if err != nil {
+		t.Errorf("failed to upx")
+		t.FailNow()
+	}
+	b, err = upx("ls", path.Dir(tmpPath))
+	if err != nil || strings.Contains(string(b), path.Base(tmpPath)) {
+		fmt.Println(string(b))
+		t.FailNow()
 	}
 }
 
