@@ -10,7 +10,7 @@
 - make directory
 - list directory
 - support progress bar
-- support multi-users **NEW**
+- support multi-users
 
 
 ## Installation
@@ -40,34 +40,34 @@ $ go get github.com/polym/upx
 ## Usage
 
 ```
-Usage:
+NAME:
+   upx - a tool for managing files in UPYUN
 
-        upx command [arguments]
+USAGE:
+   upx [global options] command [command options] [arguments...]
 
-The commands are:
+COMMANDS:
+    cd          Change working directory
+    get         Get directory or file from UPYUN
+    info        Current information
+    login       Log in UPYUN with service_name, username, password
+    logout      Log out UPYUN
+    ls          List directory or file
+    mkdir       Make directory
+    put         Put directory or file to UPYUN
+    pwd         Print working directory
+    rm          Remove one or more directories and files
+    services    List all services
+    switch      Switch service
 
-        cd       Change working directory
-        get      Get directory or file from UPYUN
-        help     Help information
-        info     Current information
-        login    Log in UPYUN with username, password, bucket
-        logout   Log out UPYUN
-        ls       List directory or file
-        mkdir    Make directory
-        put      Put directory or file to UPYUN
-        pwd      Print working directory
-        rm       Remove one or more directories and files
-        services  List all services
-        switch   Switch service
-        version  Print version
-
+GLOBAL OPTIONS:
+   --help, -h           show help
+   --version, -v        print the version
 ```
 
 
 ## TODO
 
-- list large directory (only list first 200 now)
 - sync local files to UPYUN
 - support for removing all files which are too old
-- more options for command
-- windows support
+- more options for commands
