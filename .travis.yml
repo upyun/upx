@@ -2,10 +2,16 @@ language: go
 
 go:
     - 1.5
+    - 1.6
 
 install:
-    - go get -v
-    - echo $UPX_CONFIG > $HOME/.upx.cfg
+    - go get -v -d
 
 script:
-    - make && make release && make upload
+    - make && make test
+
+after_success:
+    - echo $TRAVIS_GO_VERSION
+    - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.6" ];
+      then echo $UPX_CONFIG > $HOME/.upx.cfg && make upload;
+      fi

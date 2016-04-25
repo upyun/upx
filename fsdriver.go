@@ -304,13 +304,15 @@ func (driver *FsDriver) rmDir(path string) {
 func (driver *FsDriver) Remove(path string) {
 	path = driver.AbsPath(path)
 	if driver.IsUPDir(path) {
-		msg := fmt.Sprintf("\033[33m< %s > is a directory. ", path)
-		msg += "Are you sure to remove it? (y/n) \033[0m"
-		fmt.Printf("%s", msg)
-		var ans string
-		if fmt.Scanf("%s", &ans); ans != "y" {
-			return
-		}
+		//	if !force {
+		//		msg := fmt.Sprintf("\033[33m< %s > is a directory. ", path)
+		//		msg += "Are you sure to remove it? (y/n) \033[0m"
+		//		fmt.Printf("%s", msg)
+		//		var ans string
+		//		if fmt.Scanf("%s", &ans); ans != "y" {
+		//			return
+		//		}
+		//	}
 		driver.rmDir(path)
 	} else {
 		driver.rmFile(path)
@@ -320,14 +322,23 @@ func (driver *FsDriver) Remove(path string) {
 // path MUST be a folder
 func (driver *FsDriver) RemoveMatched(path string, mc *MatchConfig) {
 	path = driver.AbsPath(path)
-	upInfos := driver.up.GetLargeList(path, false)
-	for {
-		upInfo, more := <-upInfos
-		if !more {
-			return
+	if mc.wildcard != "" {
+		upInfos := driver.up.GetLargeList(path, false)
+		for {
+			upInfo, more := <-upInfos
+			if !more {
+				return
+			}
+			if mc.IsMatched(upInfo) {
+				driver.Remove(path + "/" + upInfo.Name)
+			}
 		}
-		if mc.IsMatched(upInfo) {
-			driver.Remove(path + "/" + upInfo.Name)
+	} else {
+		upInfo, err := driver.up.GetInfo(path)
+		if err == nil && mc.IsMatched(upInfo) {
+			driver.Remove(path)
+		} else {
+			driver.logger.Printf("DELETE %s: Not matched", path)
 		}
 	}
 }
@@ -421,33 +432,5 @@ func (driver *FsDriver) AbsPath(path string) string {
 		path = driver.curDir + "/" + path
 	}
 
-	if strings.HasSuffix(path, "/.") || strings.HasSuffix(path, "/..") {
-		path += "/"
-	}
-
-	size := 0
-	parts := strings.Split(path, "/")
-	for _, p := range parts {
-		switch p {
-		case "", ".":
-			continue
-		case "..":
-			size--
-			if size < 0 {
-				return "/"
-			}
-		default:
-			parts[size] = p
-			size++
-		}
-	}
-
-	if size == 0 {
-		return "/"
-	}
-
-	if strings.HasSuffix(path, "/") {
-		return "/" + strings.Join(parts[0:size], "/") + "/"
-	}
-	return "/" + strings.Join(parts[0:size], "/")
+	return filepath.Join("/", path)
 }
