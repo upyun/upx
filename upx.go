@@ -5,11 +5,9 @@ package main
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"sort"
-	"strings"
 )
 
 var cmds = []string{
@@ -17,14 +15,15 @@ var cmds = []string{
 	"ls", "rm", "switch", "info", "mkdir", "services",
 }
 
+var version = "v0.1.2"
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "upx"
 	app.Usage = "a tool for managing files in UPYUN"
 	app.Author = "Hongbo.Mo"
 	app.Email = "zjutpolym@gmail.com"
-	v, _ := ioutil.ReadFile("VERSION")
-	app.Version = fmt.Sprintf("%s %s/%s %s", strings.Trim(string(v), "\n"), runtime.GOOS,
+	app.Version = fmt.Sprintf("%s %s/%s %s", version, runtime.GOOS,
 		runtime.GOARCH, runtime.Version())
 	app.Commands = make([]cli.Command, 0)
 
