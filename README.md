@@ -1,4 +1,4 @@
-> upx is a tool for managing files in UPYUN. ONLY support \*nix and darwin
+> upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
 [![Build Status](https://travis-ci.org/polym/upx.svg?branch=master)](https://travis-ci.org/polym/upx)
 
