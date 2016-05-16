@@ -1,5 +1,3 @@
-// +build linux darwin
-
 package main
 
 import (
@@ -9,6 +7,7 @@ import (
 	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -69,16 +68,20 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 		}
 	}
 
-	ch := dr.up.GetLargeList(path, false)
+	ch, errChannel := dr.up.GetLargeList(path, false)
 	for {
-		info, more := <-ch
-		if !more {
-			return infos, nil
+		select {
+		case info, more := <-ch:
+			if !more {
+				return infos, nil
+			}
+			infos = append(infos, info)
+		case err := <-errChannel:
+			if err != nil {
+				return nil, err
+			}
 		}
-		infos = append(infos, info)
 	}
-
-	close(ch)
 
 	return infos, nil
 }
@@ -154,8 +157,8 @@ func (driver *FsDriver) dlFileWithProgress(src, des string) {
 
 func (driver *FsDriver) dlDir(src, des string) {
 	var wg sync.WaitGroup
-	ups := driver.up.GetLargeList(src, true)
-	desDir := des + "/" + filepath.Base(src) + "/"
+	ups, _ := driver.up.GetLargeList(src, true)
+	desDir := filepath.Join(des, path.Base(src))
 
 	wg.Add(driver.maxConc)
 	for w := 0; w < driver.maxConc; w++ {
@@ -167,8 +170,8 @@ func (driver *FsDriver) dlDir(src, des string) {
 					break
 				}
 				if upInfo.Type == "file" {
-					driver.dlFileWithProgress(src+"/"+upInfo.Name,
-						desDir+upInfo.Name)
+					driver.dlFileWithProgress(path.Join(src, upInfo.Name),
+						filepath.Join(desDir, upInfo.Name))
 				}
 			}
 		}()
@@ -230,7 +233,7 @@ func (driver *FsDriver) uploadFileWithProgress(src, des string) {
 func (driver *FsDriver) uploadDir(src, des string) {
 	var wg sync.WaitGroup
 	fnames := make(chan string, driver.maxConc)
-	desDir := des + "/" + filepath.Base(src) + "/"
+	desDir := path.Join(des, filepath.Base(src))
 	wg.Add(driver.maxConc)
 	for w := 0; w < driver.maxConc; w++ {
 		go func() {
@@ -241,7 +244,9 @@ func (driver *FsDriver) uploadDir(src, des string) {
 					return
 				}
 
-				desPath := desDir + strings.TrimPrefix(fname, src)
+				rel, _ := filepath.Rel(src, fname)
+				rel = filepath.ToSlash(rel)
+				desPath := path.Join(desDir, rel)
 				driver.uploadFileWithProgress(fname, desPath)
 			}
 		}()
@@ -263,7 +268,7 @@ func (driver *FsDriver) Uploads(src, des string) error {
 	desPath := driver.AbsPath(des)
 	if desPath, ok := driver.parseUPYUNDes(src, desPath); ok {
 		if driver.IsDiskDir(src) {
-			driver.uploadDir(src+"/", desPath)
+			driver.uploadDir(src, desPath)
 		} else {
 			driver.uploadFileWithProgress(src, desPath)
 		}
@@ -273,9 +278,14 @@ func (driver *FsDriver) Uploads(src, des string) error {
 	}
 }
 
-func (driver *FsDriver) rmFile(path string) {
+func (driver *FsDriver) rmFile(path string, async bool) {
 	path = driver.AbsPath(path)
-	err := driver.up.Delete(path)
+	remove := driver.up.Delete
+	if async {
+		remove = driver.up.AsyncDelete
+	}
+
+	err := remove(path)
 	if err != nil {
 		driver.logger.Printf("DELETE %s FAIL %v", path, err)
 	} else {
@@ -283,60 +293,69 @@ func (driver *FsDriver) rmFile(path string) {
 	}
 }
 
-func (driver *FsDriver) rmDir(path string) {
+func (driver *FsDriver) rmDir(path string, async bool) {
 	// more friendly
 	path = driver.AbsPath(path)
-	ups := driver.up.GetLargeList(path, false)
-	for {
-		upInfo, more := <-ups
-		if !more {
-			break
-		}
-		if upInfo.Type == "file" {
-			driver.rmFile(path + "/" + upInfo.Name)
-		} else {
-			driver.rmDir(path + "/" + upInfo.Name)
-		}
+	infoChannel, errChannel := driver.up.GetLargeList(path, true)
+	var wg sync.WaitGroup
+	wg.Add(200)
+	for w := 0; w < 200; w++ {
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case upInfo, more := <-infoChannel:
+					if !more {
+						return
+					}
+					driver.rmFile(path+"/"+upInfo.Name, async)
+				case err := <-errChannel:
+					if err != nil {
+						driver.logger.Printf("rmDir GetLargeList error %v", err)
+						return
+					}
+				}
+			}
+		}()
 	}
-	driver.rmFile(path)
+
+	wg.Wait()
+	driver.rmFile(path, async)
 }
 
-func (driver *FsDriver) Remove(path string) {
+func (driver *FsDriver) Remove(path string, async bool) {
 	path = driver.AbsPath(path)
 	if driver.IsUPDir(path) {
-		//	if !force {
-		//		msg := fmt.Sprintf("\033[33m< %s > is a directory. ", path)
-		//		msg += "Are you sure to remove it? (y/n) \033[0m"
-		//		fmt.Printf("%s", msg)
-		//		var ans string
-		//		if fmt.Scanf("%s", &ans); ans != "y" {
-		//			return
-		//		}
-		//	}
-		driver.rmDir(path)
+		driver.rmDir(path, async)
 	} else {
-		driver.rmFile(path)
+		driver.rmFile(path, async)
 	}
 }
 
 // path MUST be a folder
-func (driver *FsDriver) RemoveMatched(path string, mc *MatchConfig) {
+func (driver *FsDriver) RemoveMatched(path string, mc *MatchConfig, async bool) {
 	path = driver.AbsPath(path)
 	if mc.wildcard != "" {
-		upInfos := driver.up.GetLargeList(path, false)
+		upInfos, errChannel := driver.up.GetLargeList(path, false)
 		for {
-			upInfo, more := <-upInfos
-			if !more {
-				return
-			}
-			if mc.IsMatched(upInfo) {
-				driver.Remove(path + "/" + upInfo.Name)
+			select {
+			case upInfo, more := <-upInfos:
+				if !more {
+					return
+				}
+				if mc.IsMatched(upInfo) {
+					driver.Remove(path+"/"+upInfo.Name, async)
+				}
+			case err := <-errChannel:
+				if err != nil {
+					driver.logger.Printf("RemoveMatched GetLargeList error %v", err)
+				}
 			}
 		}
 	} else {
 		upInfo, err := driver.up.GetInfo(path)
 		if err == nil && mc.IsMatched(upInfo) {
-			driver.Remove(path)
+			driver.Remove(path, async)
 		} else {
 			driver.logger.Printf("DELETE %s: Not matched", path)
 		}
@@ -376,7 +395,7 @@ func (driver *FsDriver) IsUPDir(path string) bool {
 }
 
 func (driver *FsDriver) MaybeDiskDir(path string) bool {
-	if driver.IsDiskDir(path) || strings.HasSuffix(path, "/") {
+	if driver.IsDiskDir(path) || strings.HasSuffix(path, string(filepath.Separator)) {
 		return true
 	}
 	return false
@@ -400,20 +419,20 @@ func (driver *FsDriver) parseDiskDes(src, des string) (string, bool) {
 		return "", false
 	}
 	if driver.MaybeDiskDir(des) {
-		des += "/" + filepath.Base(src)
+		des = filepath.Join(des, path.Base(src))
 	}
 	return des, true
 }
 
 func (driver *FsDriver) parseUPYUNDes(src, des string) (string, bool) {
 	if driver.IsDiskDir(src) {
-		if driver.MaybeUPDir(des) {
+		if driver.MaybeUPDir(des + "/") {
 			return des, true
 		}
 		return "", false
 	}
 	if driver.MaybeUPDir(des) {
-		des += "/" + filepath.Base(src)
+		des = path.Join(des, filepath.Base(src))
 	}
 	return des, true
 }
@@ -427,10 +446,11 @@ func (dr *FsDriver) short(s string) string {
 	return s[0:17] + "..." + s[l-20:l]
 }
 
-func (driver *FsDriver) AbsPath(path string) string {
-	if path[0] != '/' {
-		path = driver.curDir + "/" + path
+func (driver *FsDriver) AbsPath(_path string) string {
+	_path = filepath.ToSlash(_path)
+	if _path[0] != '/' {
+		_path = path.Join(driver.curDir, _path)
 	}
 
-	return filepath.Join("/", path)
+	return path.Join("/", _path)
 }

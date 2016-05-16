@@ -30,8 +30,9 @@ var (
 
 var (
 	RmFlags = map[string]string{
-		"d": "only remove directories",
-		"a": "remove files, directories and their contents recursively, never prompt",
+		"d":     "only remove directories",
+		"a":     "remove files, directories and their contents recursively, never prompt",
+		"async": "remove files async",
 	}
 )
 
@@ -235,7 +236,11 @@ func Rm(args []string, opts map[string]interface{}) {
 		if v, exists := opts["a"]; exists && v.(bool) {
 			match.itemType = ""
 		}
-		driver.RemoveMatched(rPath, match)
+		async := false
+		if v, exists := opts["async"]; exists {
+			async = v.(bool)
+		}
+		driver.RemoveMatched(rPath, match, async)
 	}
 }
 
