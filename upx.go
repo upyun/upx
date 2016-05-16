@@ -32,7 +32,7 @@ func main() {
 			Cmd := cli.Command{
 				Name:  cmd,
 				Usage: cm.Desc,
-				Action: func(c *cli.Context) {
+				Action: func(c *cli.Context) error {
 					if c.Command.FullName() != "login" && driver == nil {
 						fmt.Println("Log in first.")
 						os.Exit(-1)
@@ -42,6 +42,7 @@ func main() {
 						opts[v] = c.IsSet(v)
 					}
 					cm.Func(c.Args(), opts)
+					return nil
 				},
 			}
 			if cm.Alias != "" {
