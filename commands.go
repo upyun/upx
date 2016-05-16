@@ -7,7 +7,6 @@ import (
 	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
-	"sort"
 	"strings"
 	"time"
 )
@@ -16,7 +15,12 @@ type Cmd struct {
 	Desc  string
 	Alias string
 	Func  func(args []string, opts map[string]interface{})
-	Flags map[string]string
+	Flags map[string]CmdFlag
+}
+
+type CmdFlag struct {
+	usage string
+	typ   string
 }
 
 var (
@@ -29,10 +33,15 @@ var (
 )
 
 var (
-	RmFlags = map[string]string{
-		"d":     "only remove directories",
-		"a":     "remove files, directories and their contents recursively, never prompt",
-		"async": "remove files async",
+	RmFlags = map[string]CmdFlag{
+		"d":     CmdFlag{"only remove directories", "bool"},
+		"a":     CmdFlag{"remove files, directories and their contents recursively, never prompt", "bool"},
+		"async": CmdFlag{"remove files async", "bool"},
+	}
+	LsFlags = map[string]CmdFlag{
+		"r": CmdFlag{"reverse order", "bool"},
+		"c": CmdFlag{"max items to list", "int"},
+		"d": CmdFlag{"only show directory", "bool"},
 	}
 )
 
@@ -42,7 +51,7 @@ var CmdMap = map[string]Cmd{
 	"cd":       {"Change working directory", "", Cd, nil},
 	"pwd":      {"Print working directory", "", Pwd, nil},
 	"mkdir":    {"Make directory", "mk", Mkdir, nil},
-	"ls":       {"List directory or file", "", Ls, nil},
+	"ls":       {"List directory or file", "", Ls, LsFlags},
 	"switch":   {"Switch service, alias sw", "sw", SwitchSrv, nil},
 	"services": {"List all services, alias sv", "sv", ListSrvs, nil},
 	"put":      {"Put directory or file to UPYUN", "", Put, nil},
@@ -147,20 +156,42 @@ func Ls(args []string, opts map[string]interface{}) {
 	if len(args) > 0 {
 		path = args[0]
 	}
-	if infos, err := driver.ListDir(path); err != nil {
-		fmt.Fprintf(os.Stderr, "ls %s: %v\n\n", path, err)
-		os.Exit(-1)
-	} else {
-		sort.Sort(ByName(infos))
-		for _, v := range infos {
-			s := "drwxrwxrwx"
-			if v.Type != "folder" {
-				s = "-rw-rw-rw-"
+	maxCount, cnt, asc, onlyDir := 0, 0, true, false
+
+	if v, ok := opts["c"]; ok {
+		maxCount = v.(int)
+	}
+	if v, ok := opts["r"]; ok {
+		if v.(bool) {
+			asc = false
+		}
+	}
+	if v, ok := opts["d"]; ok {
+		if v.(bool) {
+			onlyDir = true
+		}
+	}
+
+	infos, errChannel := driver.up.GetLargeList(path, asc, false)
+	for {
+		select {
+		case info, more := <-infos:
+			if !more {
+				return
 			}
-			s += fmt.Sprintf(" 1 %s %s %12d", user.Username, user.Bucket, v.Size)
-			s += " " + strftime.Format("%b %d %H:%M", v.Time)
-			s += " " + v.Name
-			fmt.Println(s)
+			if maxCount > 0 && cnt >= maxCount {
+				return
+			}
+			if onlyDir && info.Type != "folder" {
+				continue
+			}
+			fmt.Printf("%s\n", parseInfo(info))
+			cnt++
+		case err := <-errChannel:
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ls %s: %v", path, err)
+				return
+			}
 		}
 	}
 }
@@ -259,6 +290,21 @@ func Info(args []string, opts map[string]interface{}) {
 	fmt.Println(output)
 }
 
+func parseInfo(info *upyun.FileInfo) string {
+	s := "drwxrwxrwx"
+	if info.Type != "folder" {
+		s = "-rw-rw-rw-"
+	}
+	s += fmt.Sprintf(" 1 %s %s %12d", user.Username, user.Bucket, info.Size)
+	if info.Time.Year() != time.Now().Year() {
+		s += " " + strftime.Format("%b %d  %Y", info.Time)
+	} else {
+		s += " " + strftime.Format("%b %d %H:%M", info.Time)
+	}
+	s += " " + info.Name
+	return s
+}
+
 func init() {
 	conf = &Config{}
 	conf.Load(confname)
@@ -271,6 +317,9 @@ func init() {
 			user.Password, user.CurDir, 10, logger)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
+			conf.Idx = 0
+			conf.RemoveBucket()
+			conf.Save(confname)
 			os.Exit(-1)
 		}
 	}

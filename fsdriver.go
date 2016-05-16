@@ -58,7 +58,8 @@ func (driver *FsDriver) MakeDir(path string) error {
 	return driver.up.Mkdir(path)
 }
 
-func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
+func (dr *FsDriver) ListDirWithCount(path string,
+	maxCount int) (infos []*upyun.FileInfo, err error) {
 	path = dr.AbsPath(path)
 	if info, err := dr.up.GetInfo(path); err != nil {
 		return nil, err
@@ -68,7 +69,7 @@ func (dr *FsDriver) ListDir(path string) (infos []*upyun.FileInfo, err error) {
 		}
 	}
 
-	ch, errChannel := dr.up.GetLargeList(path, false)
+	ch, errChannel := dr.up.GetLargeList(path, false, false)
 	for {
 		select {
 		case info, more := <-ch:
@@ -157,7 +158,7 @@ func (driver *FsDriver) dlFileWithProgress(src, des string) {
 
 func (driver *FsDriver) dlDir(src, des string) {
 	var wg sync.WaitGroup
-	ups, _ := driver.up.GetLargeList(src, true)
+	ups, _ := driver.up.GetLargeList(src, false, true)
 	desDir := filepath.Join(des, path.Base(src))
 
 	wg.Add(driver.maxConc)
@@ -296,7 +297,7 @@ func (driver *FsDriver) rmFile(path string, async bool) {
 func (driver *FsDriver) rmDir(path string, async bool) {
 	// more friendly
 	path = driver.AbsPath(path)
-	infoChannel, errChannel := driver.up.GetLargeList(path, true)
+	infoChannel, errChannel := driver.up.GetLargeList(path, false, true)
 	var wg sync.WaitGroup
 	wg.Add(200)
 	for w := 0; w < 200; w++ {
@@ -336,7 +337,7 @@ func (driver *FsDriver) Remove(path string, async bool) {
 func (driver *FsDriver) RemoveMatched(path string, mc *MatchConfig, async bool) {
 	path = driver.AbsPath(path)
 	if mc.wildcard != "" {
-		upInfos, errChannel := driver.up.GetLargeList(path, false)
+		upInfos, errChannel := driver.up.GetLargeList(path, false, false)
 		for {
 			select {
 			case upInfo, more := <-upInfos:

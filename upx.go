@@ -38,8 +38,17 @@ func main() {
 						os.Exit(-1)
 					}
 					opts := make(map[string]interface{})
-					for _, v := range c.FlagNames() {
-						opts[v] = c.IsSet(v)
+					for k, v := range cm.Flags {
+						if c.IsSet(k) {
+							switch v.typ {
+							case "bool":
+								opts[k] = c.Bool(k)
+							case "string":
+								opts[k] = c.String(k)
+							case "int":
+								opts[k] = c.Int(k)
+							}
+						}
 					}
 					cm.Func(c.Args(), opts)
 					return nil
@@ -51,9 +60,16 @@ func main() {
 			if cm.Flags != nil {
 				Cmd.Flags = []cli.Flag{}
 				for k, v := range cm.Flags {
-					Cmd.Flags = append(Cmd.Flags, cli.BoolFlag{
-						Name: k, Usage: v,
-					})
+					var flag cli.Flag
+					switch v.typ {
+					case "bool":
+						flag = cli.BoolFlag{Name: k, Usage: v.usage}
+					case "int":
+						flag = cli.StringFlag{Name: k, Usage: v.usage}
+					case "string":
+						flag = cli.IntFlag{Name: k, Usage: v.usage}
+					}
+					Cmd.Flags = append(Cmd.Flags, flag)
 				}
 			}
 
