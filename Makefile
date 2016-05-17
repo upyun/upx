@@ -13,11 +13,11 @@ release:
 
 upload: release
 	./upx pwd
-	./upx put upx-linux-amd64-$(VER) /softwares/upx-beta/
-	./upx put upx-linux-i386-$(VER)  /softwares/upx-beta/
-	./upx put upx-darwin-amd64-$(VER) /softwares/upx-beta/
-	./upx put upx-windows-amd64-$(VER).exe /softwares/upx-beta/
-	./upx put upx-windows-i386-$(VER).exe  /softwares/upx-beta/
+	./upx put upx-linux-amd64-$(VER) /softwares/upx/
+	./upx put upx-linux-i386-$(VER)  /softwares/upx/
+	./upx put upx-darwin-amd64-$(VER) /softwares/upx/
+	./upx put upx-windows-amd64-$(VER).exe /softwares/upx/
+	./upx put upx-windows-i386-$(VER).exe  /softwares/upx/
 
 install:
 	install -c upx /usr/local/bin
