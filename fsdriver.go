@@ -453,5 +453,5 @@ func (driver *FsDriver) AbsPath(_path string) string {
 		_path = path.Join(driver.curDir, _path)
 	}
 
-	return path.Join("/", _path)
+	return _path
 }

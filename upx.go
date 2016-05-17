@@ -9,7 +9,7 @@ import (
 )
 
 var cmds = []string{
-	"login", "logout", "cd", "pwd", "get", "put",
+	"login", "logout", "cd", "pwd", "get", "put", "sync",
 	"ls", "rm", "switch", "info", "mkdir", "services",
 }
 
