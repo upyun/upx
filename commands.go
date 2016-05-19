@@ -7,6 +7,8 @@ import (
 	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -29,7 +31,8 @@ var (
 	driver *FsDriver
 
 	// TODO: refine
-	confname = os.Getenv("HOME") + "/.upx.cfg"
+	confname = filepath.Join(os.Getenv("HOME"), ".upx.cfg")
+	dbname   = filepath.Join(os.Getenv("HOME"), ".upx.db")
 )
 
 var (
@@ -43,6 +46,10 @@ var (
 		"c": CmdFlag{"max items to list", "int"},
 		"d": CmdFlag{"only show directory", "bool"},
 	}
+	SyncFlags = map[string]CmdFlag{
+		"w": CmdFlag{"worker number", "int"},
+		"v": CmdFlag{"verbose", "bool"},
+	}
 )
 
 var CmdMap = map[string]Cmd{
@@ -54,6 +61,7 @@ var CmdMap = map[string]Cmd{
 	"ls":       {"List directory or file", "", Ls, LsFlags},
 	"switch":   {"Switch service, alias sw", "sw", SwitchSrv, nil},
 	"services": {"List all services, alias sv", "sv", ListSrvs, nil},
+	"sync":     {"sync folder to UPYUN", "", Sync, SyncFlags},
 	"put":      {"Put directory or file to UPYUN", "", Put, nil},
 	"get":      {"Get directory or file from UPYUN", "", Get, nil},
 	"rm":       {"Remove one or more directories and files", "", Rm, RmFlags},
@@ -221,6 +229,31 @@ func Get(args []string, opts map[string]interface{}) {
 	time.Sleep(time.Second)
 }
 
+func Sync(args []string, opts map[string]interface{}) {
+	var src, des string
+	switch len(args) {
+	case 0:
+		// TODO
+	case 1:
+		src = args[0]
+		des = "./"
+	case 2:
+		src = args[0]
+		des = args[1]
+	}
+
+	if v, ok := opts["w"]; ok {
+		maxWorker = v.(int)
+	}
+
+	vb, ok := opts["v"]
+	if ok {
+		doSync(src, des, vb.(bool))
+	} else {
+		doSync(src, des, false)
+	}
+}
+
 func Put(args []string, opts map[string]interface{}) {
 	var src, des string
 	switch len(args) {
@@ -306,6 +339,10 @@ func parseInfo(info *upyun.FileInfo) string {
 }
 
 func init() {
+	if runtime.GOOS == "windows" {
+		confname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
+		dbname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
+	}
 	conf = &Config{}
 	conf.Load(confname)
 
