@@ -7,6 +7,7 @@ import (
 	"github.com/upyun/go-sdk/upyun"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -160,9 +161,20 @@ func Cd(args []string, opts map[string]interface{}) {
 }
 
 func Ls(args []string, opts map[string]interface{}) {
-	path := driver.GetCurDir()
+	fpath := driver.GetCurDir()
 	if len(args) > 0 {
-		path = args[0]
+		fpath = args[0]
+	}
+
+	if !driver.IsUPDir(fpath) {
+		info, err := driver.up.GetInfo(fpath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		info.Name = path.Base(fpath)
+		fmt.Println(parseInfo(info))
+		return
 	}
 	maxCount, cnt, asc, onlyDir := 0, 0, true, false
 
@@ -180,7 +192,7 @@ func Ls(args []string, opts map[string]interface{}) {
 		}
 	}
 
-	infos, errChannel := driver.up.GetLargeList(path, asc, false)
+	infos, errChannel := driver.up.GetLargeList(fpath, asc, false)
 	for {
 		select {
 		case info, more := <-infos:
@@ -197,7 +209,7 @@ func Ls(args []string, opts map[string]interface{}) {
 			cnt++
 		case err := <-errChannel:
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ls %s: %v", path, err)
+				fmt.Fprintf(os.Stderr, "ls %s: %v", fpath, err)
 				return
 			}
 		}

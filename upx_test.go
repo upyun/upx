@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -18,6 +17,7 @@ var (
 	password string
 	bucket   string
 	tmpPath  string
+	diskPath string
 	fs       *fakeFs
 )
 
@@ -65,43 +65,26 @@ func (fs *fakeFs) List(name string) (files, dirs []string) {
 }
 
 func (fs *fakeFs) Check(t *testing.T) {
-	var wg sync.WaitGroup
-	lock := make(chan int, 8)
-	for k := 0; k < 8; k++ {
-		lock <- k
+	for v, _ := range fs.fileSet {
+		b, err := upx("ls", v)
+		check(t, err == nil && strings.Contains(string(b), path.Base(v)),
+			"failed to ls %s %s %v", v, string(b), err)
 	}
-	for k, _ := range fs.fileSet {
-		wg.Add(1)
-		go func(v string) {
-			defer wg.Done()
-			<-lock
-			defer func() { lock <- 1 }()
-			_, err := upx("ls", v)
-			check(t, err == nil, "failed to ls %s %v", v, err)
-		}(k)
-	}
-	for k, _ := range fs.dirSet {
-		wg.Add(1)
-		go func(v string) {
-			defer wg.Done()
-			<-lock
-			defer func() { lock <- 1 }()
-			b, err := upx("ls", v)
-			check(t, err == nil, "failed to ls %s %v", v, err)
-			files, dirs := fs.List(v)
-			all := len(files) + len(dirs)
-			cnt := strings.Count(string(b), "\n")
-			check(t, cnt == all, "%s %d %d not equal %v %v %v", v, cnt, all, files, dirs, string(b))
+	for v, _ := range fs.dirSet {
+		b, err := upx("ls", v)
+		check(t, err == nil, "failed to ls %s %v", v, err)
+		files, dirs := fs.List(v)
+		all := len(files) + len(dirs)
+		cnt := strings.Count(string(b), "\n")
+		check(t, cnt == all, "%s %d %d not equal %v %v %v", v, cnt, all, files, dirs, string(b))
 
-			for _, f := range files {
-				check(t, strings.Contains(string(b), f), "not found %s %s", v, f)
-			}
-			for _, dir := range dirs {
-				check(t, strings.Contains(string(b), dir), "not found %s %s", v, dir)
-			}
-		}(k)
+		for _, f := range files {
+			check(t, strings.Contains(string(b), f), "not found %s %s", v, f)
+		}
+		for _, dir := range dirs {
+			check(t, strings.Contains(string(b), dir), "not found %s %s", v, dir)
+		}
 	}
-	wg.Wait()
 }
 
 func init() {
@@ -109,6 +92,9 @@ func init() {
 	password = os.Getenv("password")
 	bucket = os.Getenv("bucket")
 	tmpPath = fmt.Sprintf("/upx-%d", time.Now().Unix())
+	diskPath = fmt.Sprintf("local-%d", time.Now().Unix())
+
+	makeEnv(diskPath)
 
 	if username == "" {
 		fmt.Fprintf(os.Stderr, "username not set\n")
@@ -133,9 +119,49 @@ func init() {
 	}
 }
 
+func makeEnv(prefix string) {
+	x := []string{
+		"/foo/empty/",
+		"/foo/.dir/dir2/file",
+		"/foo/.dir/a/",
+		"/foo/.dir2/b/1",
+		"/foo/.dir2/b/2",
+		"/foo/.dir3/c/3",
+		"/foo/haha.go",
+	}
+
+	for k, s := range x {
+		p := path.Join(prefix, s)
+		if strings.HasSuffix(s, "/") {
+			err := os.MkdirAll(p, 0700)
+			checkExit(err == nil, "failed to mkdir", err)
+		} else {
+			err := os.MkdirAll(path.Dir(p), 0700)
+			checkExit(err == nil, "failed to mkdir", err)
+
+			fd, err := os.Create(p)
+			checkExit(err == nil, "failed to create", err)
+			if k%2 == 0 {
+				_, err = fd.WriteString("")
+			} else {
+				_, err = fd.WriteString(string(p))
+			}
+			checkExit(err == nil, "failed to write", err)
+			fd.Close()
+		}
+	}
+}
+
 func upx(cmd string, args ...string) ([]byte, error) {
 	args = append([]string{cmd}, args...)
 	return exec.Command("./upx", args...).Output()
+}
+
+func checkExit(cond bool, args ...interface{}) {
+	if !cond {
+		fmt.Fprintln(os.Stderr, args)
+		os.Exit(-1)
+	}
 }
 
 func check(t *testing.T, cond bool, arg0 string, args ...interface{}) {
@@ -218,7 +244,7 @@ func TestPut(t *testing.T) {
 	check(t, err == nil, "failed to Put")
 	fs.Add(path.Join(tmpPath, fname), false)
 
-	_, err = upx("put", ".", "mustdir")
+	_, err = upx("put", diskPath, "mustdir")
 
 	var readDir func(name, prefix string)
 	readDir = func(name, prefix string) {
@@ -233,7 +259,7 @@ func TestPut(t *testing.T) {
 		}
 	}
 
-	readDir(".", "mustdir")
+	readDir(diskPath, "mustdir")
 
 	fs.Check(t)
 }
@@ -254,7 +280,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	_, err := upx("sync", ".", path.Join(tmpPath, "sync"))
+	_, err := upx("sync", diskPath, path.Join(tmpPath, "sync", diskPath))
 	check(t, err == nil, "failed to sync")
 
 	var readDir func(name, prefix string)
@@ -269,17 +295,17 @@ func TestSync(t *testing.T) {
 			}
 		}
 	}
-	readDir(".", "sync")
+	readDir(diskPath, "sync")
 	fs.Check(t)
 
 	fd, _ := os.Create("newer")
 	fd.WriteString("xx")
 	fd.Close()
 
-	_, err = upx("sync", ".", path.Join(tmpPath, "sync"))
+	_, err = upx("sync", diskPath, path.Join(tmpPath, "sync", diskPath))
 	check(t, err == nil, "failed to sync")
 
-	readDir(".", "sync")
+	readDir(diskPath, "sync")
 	fs.Check(t)
 }
 
@@ -340,4 +366,5 @@ func TestRmAll(t *testing.T) {
 func TestLogout(t *testing.T) {
 	_, err := upx("logout")
 	check(t, err == nil, "failed to upx")
+	os.RemoveAll(diskPath)
 }
