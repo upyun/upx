@@ -248,15 +248,17 @@ func (driver *FsDriver) uploadDir(src, des string) {
 				rel, _ := filepath.Rel(src, fname)
 				rel = filepath.ToSlash(rel)
 				desPath := path.Join(desDir, rel)
-				driver.uploadFileWithProgress(fname, desPath)
+				if driver.IsDiskDir(fname) {
+					driver.MakeDir(desPath)
+				} else {
+					driver.uploadFileWithProgress(fname, desPath)
+				}
 			}
 		}()
 	}
 
 	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			fnames <- path
-		}
+		fnames <- path
 		return nil
 	})
 
@@ -299,8 +301,12 @@ func (driver *FsDriver) rmDir(path string, async bool) {
 	path = driver.AbsPath(path)
 	infoChannel, errChannel := driver.up.GetLargeList(path, false, true)
 	var wg sync.WaitGroup
-	wg.Add(200)
-	for w := 0; w < 200; w++ {
+	maxWorker := 1
+	if async {
+		maxWorker = 200
+	}
+	wg.Add(maxWorker)
+	for w := 0; w < maxWorker; w++ {
 		go func() {
 			defer wg.Done()
 			for {
@@ -448,10 +454,14 @@ func (dr *FsDriver) short(s string) string {
 }
 
 func (driver *FsDriver) AbsPath(_path string) string {
+	suffix := ""
+	if strings.HasSuffix(_path, "/") {
+		suffix = "/"
+	}
 	_path = filepath.ToSlash(_path)
 	if _path[0] != '/' {
 		_path = path.Join(driver.curDir, _path)
 	}
 
-	return _path
+	return path.Join(_path) + suffix
 }

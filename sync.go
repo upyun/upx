@@ -93,25 +93,23 @@ func setValue(src, des string, v *dbValue) error {
 }
 
 func doIterDir(srcPath, desPath string, fiChannel chan *dbKey, stChannel chan *task) {
-	cnt := 0
 	filepath.Walk(srcPath, func(_path string, info os.FileInfo, err error) error {
 		if err != nil {
 			stChannel <- &task{_path, err, LISTFAIL}
 			return filepath.SkipDir
 		}
-		if !info.IsDir() {
-			cnt++
-			relPath, err := filepath.Rel(srcPath, _path)
-			if err != nil {
-				stChannel <- &task{_path, err, LISTFAIL}
-				return filepath.SkipDir
-			}
-			dokey := &dbKey{
-				SrcPath: _path,
-				DesPath: path.Join(desPath, filepath.ToSlash(relPath)),
-			}
-			fiChannel <- dokey
+
+		relPath, err := filepath.Rel(srcPath, _path)
+		if err != nil {
+			stChannel <- &task{_path, err, LISTFAIL}
+			return filepath.SkipDir
 		}
+		dokey := &dbKey{
+			SrcPath: _path,
+			DesPath: path.Join(desPath, filepath.ToSlash(relPath)),
+		}
+		fiChannel <- dokey
+
 		return nil
 	})
 	close(fiChannel)
@@ -141,7 +139,12 @@ func doUploadFile(fiChannel chan *dbKey, stChannel chan *task) {
 			continue
 		}
 
-		err = driver.uploadFile(fiValue.SrcPath, fiValue.DesPath)
+		fi, _ := os.Lstat(fiValue.SrcPath)
+		if fi.IsDir() {
+			err = driver.MakeDir(fiValue.DesPath)
+		} else {
+			err = driver.uploadFile(fiValue.SrcPath, fiValue.DesPath)
+		}
 		if err != nil {
 			stChannel <- &task{fiValue.SrcPath, err, UPLOADFAIL}
 			continue
