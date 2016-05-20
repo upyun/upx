@@ -4,6 +4,11 @@ go:
     - 1.5
     - 1.6
 
+git:
+    depth: 1
+
+sudo: required
+
 install:
     - go get -v -d
 
