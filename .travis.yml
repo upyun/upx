@@ -18,5 +18,5 @@ script:
 after_success:
     - echo $TRAVIS_GO_VERSION
     - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.6" ];
-      then echo $UPX_CONFIG > $HOME/.upx.cfg && make upload;
+      then echo $UPX_CONFIG > $HOME/.upx.cfg && make upload VER=$TRAVIS_TAG;
       fi
