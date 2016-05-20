@@ -1,4 +1,6 @@
-VER= $(shell cat VERSION)
+ifndef VER
+	VER= $(shell cat VERSION)
+endif
 
 all:
 	go get -v -d
