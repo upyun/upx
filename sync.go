@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 )
@@ -113,6 +114,9 @@ func doIterDir(srcPath, desPath string, fiChannel chan *dbKey, stChannel chan *t
 			return filepath.SkipDir
 		}
 
+		if _path == srcPath {
+			return nil
+		}
 		relPath, err := filepath.Rel(srcPath, _path)
 		if err != nil {
 			stChannel <- &task{_path, "", err, LISTFAIL}
@@ -177,6 +181,8 @@ func doSync(diskSrc, upDes string, verbose bool) {
 	fiChannel := make(chan *dbKey, 2*maxWorker)
 	stChannel := make(chan *task, 2*maxWorker)
 	doneChan := make(chan int, 2*maxWorker)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
 	if db == nil {
 		var err error
 		db, err = leveldb.OpenFile(dbname, nil)
@@ -196,6 +202,9 @@ func doSync(diskSrc, upDes string, verbose bool) {
 	succ, fails, exists, worker := 0, 0, 0, 0
 	for {
 		select {
+		case <-sigChan:
+			fmt.Printf("\n%d succ, %d fails, %d ignore.\n", succ, fails, exists)
+			return
 		case t, more := <-stChannel:
 			if !more {
 				fmt.Printf("%d succ, %d fails, %d ignore.\n", succ, fails, exists)
