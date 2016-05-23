@@ -31,9 +31,10 @@ type dbValue struct {
 }
 
 type task struct {
-	path string
-	err  error
-	code int
+	srcPath string
+	desPath string
+	err     error
+	code    int
 }
 
 func makeKey(src, des string) ([]byte, error) {
@@ -95,13 +96,13 @@ func setValue(src, des string, v *dbValue) error {
 func doIterDir(srcPath, desPath string, fiChannel chan *dbKey, stChannel chan *task) {
 	filepath.Walk(srcPath, func(_path string, info os.FileInfo, err error) error {
 		if err != nil {
-			stChannel <- &task{_path, err, LISTFAIL}
+			stChannel <- &task{_path, "", err, LISTFAIL}
 			return filepath.SkipDir
 		}
 
 		relPath, err := filepath.Rel(srcPath, _path)
 		if err != nil {
-			stChannel <- &task{_path, err, LISTFAIL}
+			stChannel <- &task{_path, "", err, LISTFAIL}
 			return filepath.SkipDir
 		}
 		dokey := &dbKey{
@@ -124,18 +125,18 @@ func doUploadFile(fiChannel chan *dbKey, stChannel chan *task) {
 
 		diskV, err := makeValue(fiValue.SrcPath)
 		if err != nil {
-			stChannel <- &task{fiValue.SrcPath, err, UPLOADFAIL}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, err, UPLOADFAIL}
 			continue
 		}
 
 		dbV, err := getValue(fiValue.SrcPath, fiValue.DesPath)
 		if err != nil {
-			stChannel <- &task{fiValue.SrcPath, err, UPLOADFAIL}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, err, UPLOADFAIL}
 			continue
 		}
 
 		if dbV != nil && dbV.Mtime == diskV.Mtime {
-			stChannel <- &task{fiValue.SrcPath, nil, EXISTS}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, nil, EXISTS}
 			continue
 		}
 
@@ -146,15 +147,15 @@ func doUploadFile(fiChannel chan *dbKey, stChannel chan *task) {
 			err = driver.uploadFile(fiValue.SrcPath, fiValue.DesPath)
 		}
 		if err != nil {
-			stChannel <- &task{fiValue.SrcPath, err, UPLOADFAIL}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, err, UPLOADFAIL}
 			continue
 		}
 
 		err = setValue(fiValue.SrcPath, fiValue.DesPath, diskV)
 		if err != nil {
-			stChannel <- &task{fiValue.SrcPath, err, UPLOADFAIL}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, err, UPLOADFAIL}
 		} else {
-			stChannel <- &task{fiValue.SrcPath, nil, SUCC}
+			stChannel <- &task{fiValue.SrcPath, fiValue.DesPath, nil, SUCC}
 		}
 	}
 }
@@ -191,15 +192,15 @@ func doSync(diskSrc, upDes string, verbose bool) {
 			case SUCC:
 				succ++
 				if verbose {
-					fmt.Printf("%s %v OK\n", t.path, t.err)
+					fmt.Printf("%+v OK\n", t)
 				}
 			case LISTFAIL, UPLOADFAIL:
-				fmt.Fprintf(os.Stderr, "%s %v\n", t.path, t.err)
+				fmt.Fprintf(os.Stderr, "%+v\n", t)
 				fails++
 			case EXISTS:
 				exists++
 				if verbose {
-					fmt.Printf("%s %v ignore\n", t.path, t.err)
+					fmt.Printf("%+v\n", t)
 				}
 			}
 		case <-doneChan:
