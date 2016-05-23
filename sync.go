@@ -37,6 +37,19 @@ type task struct {
 	code    int
 }
 
+func (t *task) String() string {
+	switch t.code {
+	case SUCC:
+		return fmt.Sprintf("%s to %s OK", t.srcPath, t.desPath)
+	case UPLOADFAIL, LISTFAIL:
+		return fmt.Sprintf("%s to %s %v fail", t.srcPath, t.desPath, t.err)
+	case EXISTS:
+		return fmt.Sprintf("%s to %s existed", t.srcPath, t.desPath)
+	default:
+		return fmt.Sprintf("%s to %s unkown", t.srcPath, t.desPath)
+	}
+}
+
 func makeKey(src, des string) ([]byte, error) {
 	x := dbKey{src, path.Join(user.Bucket, des)}
 	return json.Marshal(&x)
@@ -192,15 +205,15 @@ func doSync(diskSrc, upDes string, verbose bool) {
 			case SUCC:
 				succ++
 				if verbose {
-					fmt.Printf("%+v OK\n", t)
+					fmt.Println(t.String())
 				}
 			case LISTFAIL, UPLOADFAIL:
-				fmt.Fprintf(os.Stderr, "%+v\n", t)
+				fmt.Fprintln(os.Stderr, t.String())
 				fails++
 			case EXISTS:
 				exists++
 				if verbose {
-					fmt.Printf("%+v\n", t)
+					fmt.Println(t.String())
 				}
 			}
 		case <-doneChan:
