@@ -463,5 +463,10 @@ func (driver *FsDriver) AbsPath(_path string) string {
 		_path = path.Join(driver.curDir, _path)
 	}
 
-	return path.Join(_path) + suffix
+	_path = path.Join(_path)
+	// fix when _path == "/"
+	if !strings.HasSuffix(_path, "/") && suffix == "/" {
+		return _path + suffix
+	}
+	return _path
 }

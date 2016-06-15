@@ -329,9 +329,11 @@ func Mkdir(args []string, opts map[string]interface{}) {
 }
 
 func Info(args []string, opts map[string]interface{}) {
-	output := "ServiceName: " + user.Bucket + "\n"
-	output += "Operator:    " + user.Username + "\n"
-	output += "CurrentDir:  " + user.CurDir + "\n"
+	usage, _ := driver.up.Usage()
+	output := fmt.Sprintf("ServiceName: %s\n", user.Bucket)
+	output += fmt.Sprintf("Operator:    %s\n", user.Username)
+	output += fmt.Sprintf("CurrentDir:  %s\n", user.CurDir)
+	output += fmt.Sprintf("Usage:       %.3fMB\n", float64(usage)/1024/1024)
 	fmt.Println(output)
 }
 
