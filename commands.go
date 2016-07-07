@@ -368,7 +368,6 @@ func init() {
 			user.Password, user.CurDir, 10, logger)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
-			conf.Idx = 0
 			conf.RemoveBucket()
 			conf.Save(confname)
 			os.Exit(-1)

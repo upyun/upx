@@ -39,6 +39,7 @@ func (c *Config) Load(fname string) error {
 
 func (c *Config) Save(fname string) error {
 	if len(c.Users) == 0 {
+		os.Remove(fname)
 		return nil
 	}
 	fd, err := os.Create(fname)
