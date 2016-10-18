@@ -52,12 +52,14 @@ $ go get github.com/polym/upx
 | put    | 上传一个文件或目录 |
 | sync   | 目录增量同步，类似 rsync |
 | rm     | 删除目录或文件 |
+| auth   | 生成包含空间名操作员密码信息的 auth 字符串 |
 
 
 | global options | 说明 |
 | -------------- | ---- |
 | -h             | 显示帮助信息 |
 | -v             | 显示 UPX 版本信息 |
+| --auth         | auth 字符串 |
 
 
 ### 列目录 `ls`
@@ -88,3 +90,9 @@ $ go get github.com/polym/upx
 | ------- | ---- |
 | -v      | 是否显示详细信息 |
 | -w      | 制定并发数，默认为 10 |
+
+### 生成 auth 串 `auth`
+
+> auth 空间名 操作员 密码
+
+当命令中包含 `--auth` 参数时，会忽略已登陆的信息。

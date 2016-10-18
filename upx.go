@@ -10,7 +10,7 @@ import (
 
 var cmds = []string{
 	"login", "logout", "cd", "pwd", "get", "put", "sync",
-	"ls", "rm", "switch", "info", "mkdir", "services",
+	"ls", "rm", "switch", "info", "mkdir", "services", "auth",
 }
 
 var version = "v0.1.3"
@@ -29,14 +29,16 @@ func main() {
 	for _, cmd := range cmds {
 		cm, exist := CmdMap[cmd]
 		if exist {
+			if cm.Flags == nil {
+				cm.Flags = make(map[string]CmdFlag)
+			}
+			for k, v := range GlobalFlags {
+				cm.Flags[k] = v
+			}
 			Cmd := cli.Command{
 				Name:  cmd,
 				Usage: cm.Desc,
 				Action: func(c *cli.Context) error {
-					if c.Command.FullName() != "login" && driver == nil {
-						fmt.Println("Log in first.")
-						os.Exit(-1)
-					}
 					opts := make(map[string]interface{})
 					for k, v := range cm.Flags {
 						if c.IsSet(k) {
@@ -49,6 +51,11 @@ func main() {
 								opts[k] = c.Int(k)
 							}
 						}
+					}
+					initDriver(c.String("auth"))
+					if c.Command.FullName() != "login" && driver == nil {
+						fmt.Println("Log in first.")
+						os.Exit(-1)
 					}
 					cm.Func(c.Args(), opts)
 					return nil
@@ -64,9 +71,9 @@ func main() {
 					switch v.typ {
 					case "bool":
 						flag = cli.BoolFlag{Name: k, Usage: v.usage}
-					case "int":
-						flag = cli.StringFlag{Name: k, Usage: v.usage}
 					case "string":
+						flag = cli.StringFlag{Name: k, Usage: v.usage}
+					case "int":
 						flag = cli.IntFlag{Name: k, Usage: v.usage}
 					}
 					Cmd.Flags = append(Cmd.Flags, flag)
