@@ -13,7 +13,7 @@ var cmds = []string{
 	"ls", "rm", "switch", "info", "mkdir", "services", "auth",
 }
 
-var version = "v0.1.3"
+var version = "v0.1.4"
 
 func main() {
 	app := cli.NewApp()
