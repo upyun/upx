@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/jehiah/go-strftime"
@@ -37,6 +39,9 @@ var (
 )
 
 var (
+	GlobalFlags = map[string]CmdFlag{
+		"auth": CmdFlag{"auth information", "string"},
+	}
 	RmFlags = map[string]CmdFlag{
 		"d":     CmdFlag{"only remove directories", "bool"},
 		"a":     CmdFlag{"remove files, directories and their contents recursively, never prompt", "bool"},
@@ -69,6 +74,7 @@ var CmdMap = map[string]Cmd{
 	"version":  {"Print version", "", nil, nil},    // deprecated
 	"help":     {"Help information", "", nil, nil}, // deprecated
 	"info":     {"Current information", "i", Info, nil},
+	"auth":     {"generate auth string", "", GenAuth, nil},
 }
 
 type ByName []*upyun.FileInfo
@@ -337,6 +343,15 @@ func Info(args []string, opts map[string]interface{}) {
 	fmt.Println(output)
 }
 
+func GenAuth(args []string, opts map[string]interface{}) {
+	if len(args) != 3 {
+		fmt.Fprintf(os.Stderr, "not enough arguments. bucket username password")
+		os.Exit(-1)
+	}
+	bucket, username, passwd := args[0], args[1], args[2]
+	fmt.Println(genAuth(bucket, username, passwd))
+}
+
 func parseInfo(info *upyun.FileInfo) string {
 	s := "drwxrwxrwx"
 	if info.Type != "folder" {
@@ -352,24 +367,43 @@ func parseInfo(info *upyun.FileInfo) string {
 	return s
 }
 
-func init() {
+func initDriver(auth string) {
 	if runtime.GOOS == "windows" {
 		confname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
 		dbname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
 	}
-	conf = &Config{}
-	conf.Load(confname)
 
-	user = conf.GetCurUser()
 	logger := log.New(os.Stdout, "", 0)
-	if user != nil {
+
+	if auth == "" {
+		conf = &Config{}
+		conf.Load(confname)
+
+		user = conf.GetCurUser()
+		if user != nil {
+			var err error
+			driver, err = NewFsDriver(user.Bucket, user.Username,
+				user.Password, user.CurDir, 10, logger)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
+				conf.RemoveBucket()
+				conf.Save(confname)
+				os.Exit(-1)
+			}
+		}
+	} else {
 		var err error
-		driver, err = NewFsDriver(user.Bucket, user.Username,
-			user.Password, user.CurDir, 10, logger)
+		var b []byte
+		if b, err = base64.StdEncoding.DecodeString(auth); err == nil {
+			var u userInfo
+			if err = json.Unmarshal(b, &u); err == nil {
+				user = &u
+				driver, err = NewFsDriver(user.Bucket, user.Username,
+					user.Password, "/", 10, logger)
+			}
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
-			conf.RemoveBucket()
-			conf.Save(confname)
 			os.Exit(-1)
 		}
 	}
