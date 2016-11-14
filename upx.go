@@ -52,13 +52,21 @@ func main() {
 							}
 						}
 					}
+
 					if c.IsSet("v") {
 						SetLogDebug()
 					}
-					initDriver(c.String("auth"))
-					if c.Command.FullName() != "login" && driver == nil {
+
+					needUser := true
+					if cmd == "login" || cmd == "logout" ||
+						cmd == "switch" || cmd == "services" || cmd == "auth" {
+						needUser = false
+					}
+					initDriver(c.String("auth"), needUser)
+					if needUser && driver == nil {
 						LogC("Log in first.")
 					}
+
 					cm.Func(c.Args(), opts)
 					return nil
 				},

@@ -357,7 +357,7 @@ func parseInfo(info *upyun.FileInfo) string {
 	return s
 }
 
-func initDriver(auth string) {
+func initDriver(auth string, needUser bool) {
 	if runtime.GOOS == "windows" {
 		confname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
 		dbname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
@@ -369,15 +369,17 @@ func initDriver(auth string) {
 		conf = &Config{}
 		conf.Load(confname)
 
-		user = conf.GetCurUser()
-		if user != nil {
-			var err error
-			driver, err = NewFsDriver(user.Bucket, user.Username,
-				user.Password, user.CurDir, 10, logger)
-			if err != nil {
-				conf.RemoveBucket()
-				conf.Save(confname)
-				LogC("failed to log in. %v\n", err)
+		if needUser {
+			user = conf.GetCurUser()
+			if user != nil {
+				var err error
+				driver, err = NewFsDriver(user.Bucket, user.Username,
+					user.Password, user.CurDir, 10, logger)
+				if err != nil {
+					conf.RemoveBucket()
+					conf.Save(confname)
+					LogC("failed to log in. %v\n", err)
+				}
 			}
 		}
 	} else {
