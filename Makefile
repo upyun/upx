@@ -3,13 +3,9 @@ ifndef VER
 endif
 
 all:
-	go get -v -d
 	go build -o upx
 
 release:
-	GOOS=linux go get -v -d
-	GOOS=darwin go get -v -d
-	GOOS=windows go get -v -d
 	GOOS=linux  GOARCH=amd64 go build -o upx-linux-amd64-$(VER) .
 	GOOS=linux  GOARCH=386  go build -o upx-linux-i386-$(VER) .
 	GOOS=darwin GOARCH=amd64 go build -o upx-darwin-amd64-$(VER) .
