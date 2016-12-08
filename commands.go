@@ -41,6 +41,7 @@ var (
 var (
 	GlobalFlags = map[string]CmdFlag{
 		"auth": CmdFlag{"auth information", "string"},
+		"v":    CmdFlag{"verbose", "bool"},
 	}
 	RmFlags = map[string]CmdFlag{
 		"d":     CmdFlag{"only remove directories", "bool"},
@@ -54,7 +55,6 @@ var (
 	}
 	SyncFlags = map[string]CmdFlag{
 		"w": CmdFlag{"worker number", "int"},
-		"v": CmdFlag{"verbose", "bool"},
 	}
 )
 
@@ -90,7 +90,7 @@ func Login(args []string, opts map[string]interface{}) {
 		user.Username = args[1]
 		user.Password = args[2]
 	} else {
-		fmt.Printf("ServiceName: ")
+		fmt.Printf("BucketName: ")
 		fmt.Scanf("%s\n", &user.Bucket)
 		fmt.Printf("Operator: ")
 		fmt.Scanf("%s\n", &user.Username)
@@ -101,15 +101,19 @@ func Login(args []string, opts map[string]interface{}) {
 		}
 	}
 
+	LogI("\n")
+
 	if _, err := NewFsDriver(user.Bucket, user.Username,
 		user.Password, user.CurDir, 10, nil); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
+		LogC("login: %v", err)
 		os.Exit(-1)
 	}
 
 	// save
 	conf.UpdateUserInfo(user)
 	conf.Save(confname)
+
+	LogI("Welcome to %s, %s!", user.Bucket, user.Username)
 }
 
 func Logout(args []string, opts map[string]interface{}) {
@@ -120,8 +124,7 @@ func Logout(args []string, opts map[string]interface{}) {
 		}
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "logout: %v\n\n", err)
-		os.Exit(-1)
+		LogC("logout: %v", err)
 	}
 	// save
 	conf.Save(confname)
@@ -131,7 +134,7 @@ func SwitchSrv(args []string, opts map[string]interface{}) {
 	if len(args) > 0 {
 		bucket := args[0]
 		if err := conf.SwitchBucket(bucket); err != nil {
-			fmt.Println("switch:", err)
+			LogE("switch: %v", err)
 		}
 		// save
 		conf.Save(confname)
@@ -141,9 +144,9 @@ func SwitchSrv(args []string, opts map[string]interface{}) {
 func ListSrvs(args []string, opts map[string]interface{}) {
 	for k, v := range conf.Users {
 		if k == conf.Idx {
-			fmt.Printf("* \033[33m%s\033[0m\n", v.Bucket)
+			LogI("* \033[33m%s\033[0m\n", v.Bucket)
 		} else {
-			fmt.Printf("  %s\n", v.Bucket)
+			LogI("  %s\n", v.Bucket)
 		}
 	}
 }
@@ -161,8 +164,7 @@ func Cd(args []string, opts map[string]interface{}) {
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cd %s: %v\n\n", path, err)
-		os.Exit(-1)
+		LogC("cd %s: %v", path, err)
 	}
 }
 
@@ -175,11 +177,11 @@ func Ls(args []string, opts map[string]interface{}) {
 	if !driver.IsUPDir(fpath) {
 		info, err := driver.up.GetInfo(fpath)
 		if err != nil {
-			fmt.Println(err)
+			LogE("getinfo: %v", err)
 			return
 		}
 		info.Name = path.Base(fpath)
-		fmt.Println(parseInfo(info))
+		LogI(parseInfo(info))
 		return
 	}
 	maxCount, cnt, asc, onlyDir := 0, 0, true, false
@@ -211,11 +213,11 @@ func Ls(args []string, opts map[string]interface{}) {
 			if onlyDir && info.Type != "folder" {
 				continue
 			}
-			fmt.Printf("%s\n", parseInfo(info))
+			LogI("%s\n", parseInfo(info))
 			cnt++
 		case err := <-errChannel:
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ls %s: %v", fpath, err)
+				LogE("ls %s: %v", fpath, err)
 				return
 			}
 		}
@@ -223,7 +225,7 @@ func Ls(args []string, opts map[string]interface{}) {
 }
 
 func Pwd(args []string, opts map[string]interface{}) {
-	fmt.Println(driver.GetCurDir())
+	LogI(driver.GetCurDir())
 }
 
 func Get(args []string, opts map[string]interface{}) {
@@ -240,8 +242,7 @@ func Get(args []string, opts map[string]interface{}) {
 	}
 
 	if err := driver.Downloads(src, des); err != nil {
-		fmt.Fprintf(os.Stderr, "get %s %s: %v\n\n", src, des, err)
-		os.Exit(-1)
+		LogC("get %s %s: %v\n\n", src, des, err)
 	}
 
 	time.Sleep(time.Second)
@@ -264,30 +265,21 @@ func Sync(args []string, opts map[string]interface{}) {
 		maxWorker = v.(int)
 	}
 
-	vb, ok := opts["v"]
-	if ok {
-		doSync(src, des, vb.(bool))
-	} else {
-		doSync(src, des, false)
-	}
+	doSync(src, des)
 }
 
 func Put(args []string, opts map[string]interface{}) {
 	var src, des string
 	switch len(args) {
-	case 0:
-		// TODO
 	case 1:
-		src = args[0]
-		des = "./"
+		src, des = args[0], "./"
 	case 2:
-		src = args[0]
-		des = args[1]
+		src, des = args[0], args[1]
+	default:
 	}
 
 	if err := driver.Uploads(src, des); err != nil {
-		fmt.Fprintf(os.Stderr, "put %s %s: %v\n\n", src, des, err)
-		os.Exit(-1)
+		LogC("put %s %s: %v\n\n", src, des, err)
 	}
 
 	time.Sleep(time.Second)
@@ -329,27 +321,26 @@ func Rm(args []string, opts map[string]interface{}) {
 func Mkdir(args []string, opts map[string]interface{}) {
 	for _, path := range args {
 		if err := driver.MakeDir(path); err != nil {
-			fmt.Fprintf(os.Stderr, "mkdir %s: %v\n\n", path, err)
+			LogE("mkdir %s: %v\n\n", path, err)
 		}
 	}
 }
 
 func Info(args []string, opts map[string]interface{}) {
 	usage, _ := driver.up.Usage()
-	output := fmt.Sprintf("ServiceName: %s\n", user.Bucket)
+	output := fmt.Sprintf("BucketName: %s\n", user.Bucket)
 	output += fmt.Sprintf("Operator:    %s\n", user.Username)
 	output += fmt.Sprintf("CurrentDir:  %s\n", user.CurDir)
 	output += fmt.Sprintf("Usage:       %.3fMB\n", float64(usage)/1024/1024)
-	fmt.Println(output)
+	LogI(output)
 }
 
 func GenAuth(args []string, opts map[string]interface{}) {
 	if len(args) != 3 {
-		fmt.Fprintf(os.Stderr, "not enough arguments. bucket username password")
-		os.Exit(-1)
+		LogC("not enough arguments. bucket username password")
 	}
 	bucket, username, passwd := args[0], args[1], args[2]
-	fmt.Println(genAuth(bucket, username, passwd))
+	LogI(genAuth(bucket, username, passwd))
 }
 
 func parseInfo(info *upyun.FileInfo) string {
@@ -385,10 +376,9 @@ func initDriver(auth string) {
 			driver, err = NewFsDriver(user.Bucket, user.Username,
 				user.Password, user.CurDir, 10, logger)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
 				conf.RemoveBucket()
 				conf.Save(confname)
-				os.Exit(-1)
+				LogC("failed to log in. %v\n", err)
 			}
 		}
 	} else {
@@ -403,8 +393,7 @@ func initDriver(auth string) {
 			}
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to log in. %v\n", err)
-			os.Exit(-1)
+			LogC("failed to log in. %v\n", err)
 		}
 	}
 }
