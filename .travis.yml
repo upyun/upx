@@ -10,10 +10,11 @@ git:
 sudo: required
 
 install:
-    - GO15VENDOREXPERIMENT=1 go get -v -d
+    - export GO15VENDOREXPERIMENT=1
+    - go get -v -d
 
 script:
-    - GO15VENDOREXPERIMENT=1 make && GO15VENDOREXPERIMENT=1 make test
+    - make && make test
 
 after_success:
     - echo $TRAVIS_GO_VERSION

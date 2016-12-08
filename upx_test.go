@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -152,9 +153,21 @@ func makeEnv(prefix string) {
 	}
 }
 
-func upx(cmd string, args ...string) ([]byte, error) {
-	args = append([]string{cmd}, args...)
-	return exec.Command("./upx", args...).Output()
+func upx(comand string, args ...string) ([]byte, error) {
+	args = append([]string{comand}, args...)
+	cmd := exec.Command("./upx", args...)
+	var obuf, ebuf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &obuf, &ebuf
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	err := cmd.Wait()
+	ob, _ := ioutil.ReadAll(&obuf)
+	eb, _ := ioutil.ReadAll(&ebuf)
+	if err != nil {
+		return ob, fmt.Errorf("%s", string(eb))
+	}
+	return ob, nil
 }
 
 func checkExit(cond bool, args ...interface{}) {
@@ -196,28 +209,28 @@ func makeFileName(n int) string {
 
 func TestLogin(t *testing.T) {
 	_, err := upx("login", bucket, username, password)
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 }
 
 func TestMkdir(t *testing.T) {
 	_, err := upx("mkdir", tmpPath)
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	fs.Add(tmpPath, true)
 
 	dir := tmpPath + "/../" + tmpPath + "/foo/../bar/"
 	_, err = upx("mkdir", dir)
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	fs.Add(path.Join(dir), true)
 }
 
 func TestCd(t *testing.T) {
 	_, err := upx("cd", tmpPath)
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 }
 
 func TestPwd(t *testing.T) {
 	b, err := upx("pwd")
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	if string(b) != tmpPath+"\n" {
 		t.Errorf("%s != %s\n", string(b), tmpPath)
 		t.Fail()
@@ -270,7 +283,7 @@ func TestLs(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	_, err := upx("get", "upx.go", "upx.go.2")
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 
 	_, err = os.Lstat("upx.go.2")
 	if err != nil {
@@ -311,13 +324,13 @@ func TestSync(t *testing.T) {
 
 func TestServices(t *testing.T) {
 	b, err := upx("services")
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	if !strings.Contains(string(b), bucket) {
 		t.FailNow()
 	}
 
 	b1, err := upx("sv")
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	if string(b) != string(b1) {
 		t.Errorf("%s != %s\n", string(b), string(b1))
 		t.Fail()
@@ -326,7 +339,7 @@ func TestServices(t *testing.T) {
 
 func TestSwitch(t *testing.T) {
 	_, err := upx("switch", bucket)
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 }
 
 func TestRmDir(t *testing.T) {
@@ -365,6 +378,6 @@ func TestRmAll(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	_, err := upx("logout")
-	check(t, err == nil, "failed to upx")
+	check(t, err == nil, fmt.Sprintf("failed to upx %v", err))
 	os.RemoveAll(diskPath)
 }
