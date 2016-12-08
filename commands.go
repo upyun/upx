@@ -106,7 +106,6 @@ func Login(args []string, opts map[string]interface{}) {
 	if _, err := NewFsDriver(user.Bucket, user.Username,
 		user.Password, user.CurDir, 10, nil); err != nil {
 		LogC("login: %v", err)
-		os.Exit(-1)
 	}
 
 	// save
@@ -134,7 +133,7 @@ func SwitchSrv(args []string, opts map[string]interface{}) {
 	if len(args) > 0 {
 		bucket := args[0]
 		if err := conf.SwitchBucket(bucket); err != nil {
-			LogE("switch: %v", err)
+			LogC("switch: %v", err)
 		}
 		// save
 		conf.Save(confname)
@@ -177,7 +176,7 @@ func Ls(args []string, opts map[string]interface{}) {
 	if !driver.IsUPDir(fpath) {
 		info, err := driver.up.GetInfo(fpath)
 		if err != nil {
-			LogE("getinfo: %v", err)
+			LogC("getinfo: %v", err)
 			return
 		}
 		info.Name = path.Base(fpath)
@@ -217,7 +216,7 @@ func Ls(args []string, opts map[string]interface{}) {
 			cnt++
 		case err := <-errChannel:
 			if err != nil {
-				LogE("ls %s: %v", fpath, err)
+				LogC("ls %s: %v", fpath, err)
 				return
 			}
 		}
@@ -321,7 +320,7 @@ func Rm(args []string, opts map[string]interface{}) {
 func Mkdir(args []string, opts map[string]interface{}) {
 	for _, path := range args {
 		if err := driver.MakeDir(path); err != nil {
-			LogE("mkdir %s: %v\n\n", path, err)
+			LogC("mkdir %s: %v\n\n", path, err)
 		}
 	}
 }
