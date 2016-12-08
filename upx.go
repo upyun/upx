@@ -52,10 +52,12 @@ func main() {
 							}
 						}
 					}
+					if c.IsSet("v") {
+						SetLogDebug()
+					}
 					initDriver(c.String("auth"))
 					if c.Command.FullName() != "login" && driver == nil {
-						fmt.Println("Log in first.")
-						os.Exit(-1)
+						LogC("Log in first.")
 					}
 					cm.Func(c.Args(), opts)
 					return nil

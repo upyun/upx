@@ -177,7 +177,7 @@ func doUploadFile(fiChannel chan *dbKey, stChannel chan *task) {
 	}
 }
 
-func doSync(diskSrc, upDes string, verbose bool) {
+func doSync(diskSrc, upDes string) {
 	fiChannel := make(chan *dbKey, 2*maxWorker)
 	stChannel := make(chan *task, 2*maxWorker)
 	doneChan := make(chan int, 2*maxWorker)
@@ -187,8 +187,7 @@ func doSync(diskSrc, upDes string, verbose bool) {
 		var err error
 		db, err = leveldb.OpenFile(dbname, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(-1)
+			LogC("open file: %v\n", err)
 		}
 	}
 
@@ -203,27 +202,27 @@ func doSync(diskSrc, upDes string, verbose bool) {
 	for {
 		select {
 		case <-sigChan:
-			fmt.Printf("\n%d succ, %d fails, %d ignore.\n", succ, fails, exists)
+			LogC("\n%d succ, %d fails, %d ignore.\n", succ, fails, exists)
 			return
 		case t, more := <-stChannel:
 			if !more {
-				fmt.Printf("%d succ, %d fails, %d ignore.\n", succ, fails, exists)
+				if fails == 0 {
+					LogI("%d succ, %d fails, %d ignore.\n", succ, fails, exists)
+				} else {
+					LogC("%d succ, %d fails, %d ignore.\n", succ, fails, exists)
+				}
 				return
 			}
 			switch t.code {
 			case SUCC:
 				succ++
-				if verbose {
-					fmt.Println(t.String())
-				}
+				LogD(t.String())
 			case LISTFAIL, UPLOADFAIL:
-				fmt.Fprintln(os.Stderr, t.String())
+				LogE(t.String())
 				fails++
 			case EXISTS:
 				exists++
-				if verbose {
-					fmt.Println(t.String())
-				}
+				LogD(t.String())
 			}
 		case <-doneChan:
 			worker++
