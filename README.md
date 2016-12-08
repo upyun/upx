@@ -15,11 +15,11 @@
 
 ### 可执行程序二进制下载地址
 
-- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.1.4)
-- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-i386-v0.1.4)
-- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.1.4.exe)
-- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-i386-v0.1.4.exe)
-- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.1.4)
+- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.1.5)
+- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-i386-v0.1.5)
+- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.1.5.exe)
+- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-i386-v0.1.5.exe)
+- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.1.5)
 
 ### 源码编译
 
