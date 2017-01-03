@@ -173,6 +173,8 @@ func (driver *FsDriver) dlDir(src, des string) {
 				if upInfo.Type == "file" {
 					driver.dlFileWithProgress(path.Join(src, upInfo.Name),
 						filepath.Join(desDir, upInfo.Name))
+				} else {
+					os.MkdirAll(filepath.Join(desDir, upInfo.Name), os.ModeDir)
 				}
 			}
 		}()
