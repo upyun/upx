@@ -1,27 +1,43 @@
 ifndef VER
-	VER= $(shell cat VERSION)
+	VER= 'latest'
 endif
 
-all:
-	go build -o upx
+APP= upx
+ROOT= $(shell echo $(GOPATH) | awk -F':' '{print $$1}')
+PROJ_DIR= $(ROOT)/src/upyun.com
+PWD= $(shell pwd)
+
+app:
+	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
+	cd $(PROJ_DIR)/$(APP) && go build -o $(APP) .
+	unlink $(PROJ_DIR)/$(APP)
+
+vendor:
+	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
+	cd $(PROJ_DIR)/$(APP) && govendor init && govendor add +external
+	unlink $(PROJ_DIR)/$(APP)
+
+test:
+	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
+	cd $(PROJ_DIR)/$(APP) && go test -v .
+	unlink $(PROJ_DIR)/$(APP)
 
 release:
-	GOOS=linux  GOARCH=amd64 go build -o upx-linux-amd64-$(VER) .
-	GOOS=linux  GOARCH=386  go build -o upx-linux-i386-$(VER) .
-	GOOS=darwin GOARCH=amd64 go build -o upx-darwin-amd64-$(VER) .
-	GOOS=windows GOARCH=386 go build -o upx-windows-i386-$(VER).exe .
-	GOOS=windows GOARCH=amd64 go build -o upx-windows-amd64-$(VER).exe .
+	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
+	cd $(PROJ_DIR)/$(APP) && for OS in linux windows darwin; do \
+		for ARCH in amd64 386; do \
+			GOOS=$$OS GOARCH=$$ARCH go build -o upx-$$OS-$$ARCH-$(VER) .; \
+			GOOS=$$OS GOARCH=$$ARCH go test -c -o upx-$$OS-$$ARCH-$(VER).test .; \
+		done \
+	done
+	unlink $(PROJ_DIR)/$(APP)
 
 upload: release
 	./upx pwd
-	./upx put upx-linux-amd64-$(VER) /softwares/upx/
-	./upx put upx-linux-i386-$(VER)  /softwares/upx/
-	./upx put upx-darwin-amd64-$(VER) /softwares/upx/
-	./upx put upx-windows-amd64-$(VER).exe /softwares/upx/
-	./upx put upx-windows-i386-$(VER).exe  /softwares/upx/
+	for OS in linux windows darwin; do \
+		for ARCH in amd64 386; do \
+			./upx put upx-$$OS-$$ARCH-$(VER) /softwares/upx/; \
+		done \
+	done
 
-install:
-	install -c upx /usr/local/bin
-
-test:
-	go test -v
+.PHONY: app vendor test release upload

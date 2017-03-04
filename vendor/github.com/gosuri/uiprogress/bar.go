@@ -216,6 +216,9 @@ func (b *Bar) String() string {
 
 // CompletedPercent return the percent completed
 func (b *Bar) CompletedPercent() float64 {
+	if b.Total == 0 {
+		return 100.0
+	}
 	return (float64(b.Current()) / float64(b.Total)) * 100.00
 }
 
