@@ -32,7 +32,7 @@ release:
 	done
 	unlink $(PROJ_DIR)/$(APP)
 
-upload:
+upload: release
 	./upx pwd
 	for OS in linux windows darwin; do \
 		for ARCH in amd64 386; do \

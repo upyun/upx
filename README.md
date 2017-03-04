@@ -11,11 +11,11 @@
 - [x] 支持增量同步文件到又拍云存储
 - [x] 支持删除又拍云存储中的文件或目录，并且支持通配符 `*`
 - [x] 支持多用户，多操作系统
-- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持基于时间列目录以及删除文件
-- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持 `tree` 获取目录结构
-- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持提交异步处理任务
-- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 更加准确简洁的进度条
-- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 使用 UPYUN GoSDK 2.1.0
+- [x] **`v0.2.x`** 支持基于时间列目录以及删除文件
+- [x] **`v0.2.x`** 支持 `tree` 获取目录结构
+- [x] **`v0.2.x`** 支持提交异步处理任务
+- [x] **`v0.2.x`** 更加准确简洁的进度条
+- [x] **`v0.2.x`** 使用 UPYUN GoSDK 2.1.0
 
 ## 安装
 

@@ -89,11 +89,12 @@ func getDir(t *testing.T, src, dst, correct string) {
 
 func TestPutAndGet(t *testing.T) {
 	base := ROOT + "/put/"
-	pwd, _ := os.Getwd()
+	pwd := "/tmp"
 	localBase := filepath.Join(pwd, "put")
 	func() {
 		SetUp()
-		os.MkdirAll(localBase, os.ModeDir)
+		err := os.MkdirAll(localBase, 0755)
+		Nil(t, err)
 	}()
 	defer TearDown()
 
@@ -132,7 +133,7 @@ func TestPutAndGet(t *testing.T) {
 	NotNil(t, err)
 
 	localBase = filepath.Join(pwd, "get")
-	os.MkdirAll(localBase, os.ModeDir)
+	os.MkdirAll(localBase, 0755)
 	err = os.Chdir(localBase)
 	Nil(t, err)
 

@@ -200,7 +200,7 @@ func (sess *Session) Ls(upPath string, match *MatchConfig, maxItems int, isDesc 
 }
 
 func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, workers int) error {
-	if err := os.MkdirAll(localPath, os.ModeDir); err != nil {
+	if err := os.MkdirAll(localPath, 0755); err != nil {
 		return err
 	}
 
@@ -218,7 +218,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 					fpath := path.Join(upPath, fInfo.Name)
 					lpath := filepath.Join(localPath, filepath.FromSlash(fInfo.Name))
 					if fInfo.IsDir {
-						os.MkdirAll(lpath, os.ModeDir)
+						os.MkdirAll(lpath, 0755)
 					} else {
 						id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo)
 					}
@@ -258,7 +258,7 @@ func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInf
 	})
 
 	dir := filepath.Dir(localPath)
-	if err = os.MkdirAll(dir, os.ModeDir); err != nil {
+	if err = os.MkdirAll(dir, 0755); err != nil {
 		return id, err
 	}
 

@@ -86,7 +86,7 @@ func isNil(object interface{}) bool {
 }
 
 func CreateFile(fpath string) {
-	os.MkdirAll(filepath.Dir(fpath), os.ModeDir)
+	os.MkdirAll(filepath.Dir(fpath), 0755)
 	fd, _ := os.Create(fpath)
 	fd.WriteString("UPX")
 	fd.Close()
