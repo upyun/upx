@@ -9,6 +9,12 @@
 			"revisionTime": "2016-08-01T03:09:57Z"
 		},
 		{
+			"checksumSHA1": "XEBl9iQQvfXNlwCSzyAOCqAlYEA=",
+			"path": "github.com/fatih/color",
+			"revision": "42c364ba490082e4815b5222728711b3440603eb",
+			"revisionTime": "2017-01-13T15:16:12Z"
+		},
+		{
 			"checksumSHA1": "W+E/2xXcE1GmJ0Qb784ald0Fn6I=",
 			"path": "github.com/golang/snappy",
 			"revision": "d9eb7a3d35ec988b8585d4a0068e462c27d28380",
@@ -43,6 +49,12 @@
 			"path": "github.com/jehiah/go-strftime",
 			"revision": "2efbe75097a505e2789f7e39cb9da067b5be8e3e",
 			"revisionTime": "2015-12-06T19:48:10Z"
+		},
+		{
+			"checksumSHA1": "I4njd26dG5hxFT2nawuByM4pxzY=",
+			"path": "github.com/mattn/go-colorable",
+			"revision": "d228849504861217f796da67fae4f6e347643f15",
+			"revisionTime": "2016-11-03T16:00:40Z"
 		},
 		{
 			"checksumSHA1": "xZuhljnmBysJPta/lMyYmJdujCg=",
@@ -123,10 +135,10 @@
 			"revisionTime": "2016-06-29T10:12:33Z"
 		},
 		{
-			"checksumSHA1": "c09A9jpLNqZh1mQY/TcqgXrgVbI=",
+			"checksumSHA1": "JiHcfWMC0hkqpx5CbpdD1abUQUw=",
 			"path": "github.com/upyun/go-sdk/upyun",
-			"revision": "e48df1787fe0f68e0b4f0b850d13c95eebe05dc0",
-			"revisionTime": "2016-10-10T03:28:28Z"
+			"revision": "a71208d1155d6de85b8e80b480634957695db963",
+			"revisionTime": "2017-02-14T01:42:58Z"
 		},
 		{
 			"checksumSHA1": "y3a1tOZVwKCqG2yJZvAYycnelyM=",
@@ -135,5 +147,5 @@
 			"revisionTime": "2016-08-16T20:51:58Z"
 		}
 	],
-	"rootPath": "github.com/polym/upx"
+	"rootPath": "upyun.com/upx"
 }

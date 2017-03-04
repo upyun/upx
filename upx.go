@@ -5,94 +5,58 @@ import (
 	"github.com/codegangsta/cli"
 	"os"
 	"runtime"
-	"sort"
+	"time"
 )
 
-var cmds = []string{
-	"login", "logout", "cd", "pwd", "get", "put", "sync",
-	"ls", "rm", "switch", "info", "mkdir", "services", "auth",
-}
-
-var version = "v0.1.6"
+const VERSION = "v0.2.0"
 
 func main() {
+	initProgress()
+	progress.Start()
+	defer progress.Stop()
+
 	app := cli.NewApp()
 	app.Name = "upx"
-	app.Usage = "a tool for managing files in UPYUN"
+	app.Usage = "a tool for driving UpYun Storage"
 	app.Author = "Hongbo.Mo"
 	app.Email = "zjutpolym@gmail.com"
-	app.Version = fmt.Sprintf("%s %s/%s %s", version, runtime.GOOS,
-		runtime.GOARCH, runtime.Version())
-	app.Commands = make([]cli.Command, 0)
-
-	sort.Strings(cmds)
-	for _, cmd := range cmds {
-		cm, exist := CmdMap[cmd]
-		if exist {
-			if cm.Flags == nil {
-				cm.Flags = make(map[string]CmdFlag)
-			}
-			for k, v := range GlobalFlags {
-				cm.Flags[k] = v
-			}
-			Cmd := cli.Command{
-				Name:  cmd,
-				Usage: cm.Desc,
-				Action: func(c *cli.Context) error {
-					opts := make(map[string]interface{})
-					for k, v := range cm.Flags {
-						if c.IsSet(k) {
-							switch v.typ {
-							case "bool":
-								opts[k] = c.Bool(k)
-							case "string":
-								opts[k] = c.String(k)
-							case "int":
-								opts[k] = c.Int(k)
-							}
-						}
-					}
-
-					if c.IsSet("v") {
-						SetLogDebug()
-					}
-
-					cmd := c.Command.FullName()
-					needUser := true
-					if cmd == "login" || cmd == "logout" ||
-						cmd == "switch" || cmd == "services" || cmd == "auth" {
-						needUser = false
-					}
-					initDriver(c.String("auth"), needUser)
-					if needUser && driver == nil {
-						LogC("Log in first.")
-					}
-
-					cm.Func(c.Args(), opts)
-					return nil
-				},
-			}
-			if cm.Alias != "" {
-				Cmd.Aliases = []string{cm.Alias}
-			}
-			if cm.Flags != nil {
-				Cmd.Flags = []cli.Flag{}
-				for k, v := range cm.Flags {
-					var flag cli.Flag
-					switch v.typ {
-					case "bool":
-						flag = cli.BoolFlag{Name: k, Usage: v.usage}
-					case "string":
-						flag = cli.StringFlag{Name: k, Usage: v.usage}
-					case "int":
-						flag = cli.IntFlag{Name: k, Usage: v.usage}
-					}
-					Cmd.Flags = append(Cmd.Flags, flag)
-				}
-			}
-
-			app.Commands = append(app.Commands, Cmd)
+	app.Version = fmt.Sprintf("%s %s/%s %s", VERSION,
+		runtime.GOOS, runtime.GOARCH, runtime.Version())
+	app.EnableBashCompletion = true
+	app.Compiled = time.Now()
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "quiet, q", Usage: "not verbose"},
+		cli.StringFlag{Name: "auth", Usage: "auth string"},
+	}
+	app.Before = func(c *cli.Context) error {
+		if c.Bool("q") {
+			isVerbose = false
 		}
+		if c.String("auth") != "" {
+			err := authStrToConfig(c.String("auth"))
+			if err != nil {
+				PrintErrorAndExit("%s: invalid auth string", c.Command.FullName())
+			}
+		}
+		return nil
+	}
+	app.Commands = []cli.Command{
+		NewLoginCommand(),
+		NewLogoutCommand(),
+		NewListSessionsCommand(),
+		NewSwitchSessionCommand(),
+		NewInfoCommand(),
+		NewCdCommand(),
+		NewPwdCommand(),
+		NewMkdirCommand(),
+		NewLsCommand(),
+		NewTreeCommand(),
+		NewGetCommand(),
+		NewPutCommand(),
+		NewRmCommand(),
+		NewSyncCommand(),
+		NewAuthCommand(),
+		NewPostCommand(),
 	}
 
 	app.Run(os.Args)

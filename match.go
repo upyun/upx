@@ -3,35 +3,67 @@ package main
 import (
 	"github.com/upyun/go-sdk/upyun"
 	"path/filepath"
+	"time"
+)
+
+const (
+	TIME_NOT_SET = iota
+	TIME_BEFORE
+	TIME_AFTER
+	TIME_INTERVAL
+)
+
+const (
+	ITEM_NOT_SET = iota
+	DIR
+	FILE
 )
 
 type MatchConfig struct {
-	wildcard      string
-	timestampType string /* before, after*/
-	timestamp     int
-	itemType      string /* file, folder */
+	Wildcard string
+
+	TimeType int
+	Before   time.Time
+	After    time.Time
+
+	ItemType int
 }
 
-func (mc *MatchConfig) IsMatched(upInfo *upyun.FileInfo) bool {
-	if mc.wildcard != "" {
-		if same, _ := filepath.Match(mc.wildcard, upInfo.Name); !same {
+func IsMatched(upInfo *upyun.FileInfo, mc *MatchConfig) bool {
+	if mc.Wildcard != "" {
+		if same, _ := filepath.Match(mc.Wildcard, upInfo.Name); !same {
 			return false
 		}
 	}
-	if mc.timestamp != 0 {
-		dist := int(upInfo.Time.Unix()) - mc.timestamp
-		typ := mc.timestampType
-		if dist < 0 && typ == "before" {
+
+	switch mc.TimeType {
+	case TIME_BEFORE:
+		if !upInfo.Time.Before(mc.Before) {
 			return false
 		}
-		if dist > 0 && typ == "after" {
+	case TIME_AFTER:
+		if !upInfo.Time.After(mc.After) {
+			return false
+		}
+	case TIME_INTERVAL:
+		if !upInfo.Time.Before(mc.Before) {
+			return false
+		}
+		if !upInfo.Time.After(mc.After) {
 			return false
 		}
 	}
-	if mc.itemType != "" {
-		if upInfo.Type != mc.itemType {
+
+	switch mc.ItemType {
+	case DIR:
+		if !upInfo.IsDir {
+			return false
+		}
+	case FILE:
+		if upInfo.IsDir {
 			return false
 		}
 	}
+
 	return true
 }

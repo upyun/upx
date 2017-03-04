@@ -36,6 +36,7 @@ type Progress struct {
 	lw       *uilive.Writer
 	stopChan chan struct{}
 	mtx      *sync.RWMutex
+	wg       *sync.WaitGroup
 }
 
 // New returns a new progress bar with defaults
@@ -49,6 +50,7 @@ func New() *Progress {
 		lw:       uilive.New(),
 		stopChan: make(chan struct{}),
 		mtx:      &sync.RWMutex{},
+		wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -89,6 +91,13 @@ func (p *Progress) Listen() {
 	for {
 		select {
 		case <-p.stopChan:
+			p.mtx.RLock()
+			for _, bar := range p.Bars {
+				fmt.Fprintln(p.lw, bar.String())
+			}
+			p.lw.Flush()
+			p.mtx.RUnlock()
+			p.wg.Done()
 			return
 		default:
 			time.Sleep(p.RefreshInterval)
@@ -107,12 +116,14 @@ func (p *Progress) Start() {
 	if p.stopChan == nil {
 		p.stopChan = make(chan struct{})
 	}
+	p.wg.Add(1)
 	go p.Listen()
 }
 
 // Stop stops listening
 func (p *Progress) Stop() {
 	close(p.stopChan)
+	p.wg.Wait()
 	p.stopChan = nil
 }
 

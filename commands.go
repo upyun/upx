@@ -1,400 +1,405 @@
 package main
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"github.com/codegangsta/cli"
+	"github.com/fatih/color"
 	"github.com/howeyc/gopass"
-	"github.com/jehiah/go-strftime"
-	"github.com/upyun/go-sdk/upyun"
-	"log"
-	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 )
 
-type Cmd struct {
-	Desc  string
-	Alias string
-	Func  func(args []string, opts map[string]interface{})
-	Flags map[string]CmdFlag
-}
-
-type CmdFlag struct {
-	usage string
-	typ   string
-}
-
-var (
-	conf   *Config
-	user   *userInfo
-	driver *FsDriver
-
-	// TODO: refine
-	confname = filepath.Join(os.Getenv("HOME"), ".upx.cfg")
-	dbname   = filepath.Join(os.Getenv("HOME"), ".upx.db")
-)
-
-var (
-	GlobalFlags = map[string]CmdFlag{
-		"auth": CmdFlag{"auth information", "string"},
-		"v":    CmdFlag{"verbose", "bool"},
-	}
-	RmFlags = map[string]CmdFlag{
-		"d":     CmdFlag{"only remove directories", "bool"},
-		"a":     CmdFlag{"remove files, directories and their contents recursively, never prompt", "bool"},
-		"async": CmdFlag{"remove files async", "bool"},
-	}
-	LsFlags = map[string]CmdFlag{
-		"r": CmdFlag{"reverse order", "bool"},
-		"c": CmdFlag{"max items to list", "int"},
-		"d": CmdFlag{"only show directory", "bool"},
-	}
-	SyncFlags = map[string]CmdFlag{
-		"w": CmdFlag{"worker number", "int"},
-	}
-)
-
-var CmdMap = map[string]Cmd{
-	"login":    {"Log in UPYUN with service_name, username, password", "", Login, nil},
-	"logout":   {"Log out UPYUN", "", Logout, nil},
-	"cd":       {"Change working directory", "", Cd, nil},
-	"pwd":      {"Print working directory", "", Pwd, nil},
-	"mkdir":    {"Make directory", "mk", Mkdir, nil},
-	"ls":       {"List directory or file", "", Ls, LsFlags},
-	"switch":   {"Switch service, alias sw", "sw", SwitchSrv, nil},
-	"services": {"List all services, alias sv", "sv", ListSrvs, nil},
-	"sync":     {"sync folder to UPYUN", "", Sync, SyncFlags},
-	"put":      {"Put directory or file to UPYUN", "", Put, nil},
-	"get":      {"Get directory or file from UPYUN", "", Get, nil},
-	"rm":       {"Remove one or more directories and files", "", Rm, RmFlags},
-	"version":  {"Print version", "", nil, nil},    // deprecated
-	"help":     {"Help information", "", nil, nil}, // deprecated
-	"info":     {"Current information", "i", Info, nil},
-	"auth":     {"generate auth string", "", GenAuth, nil},
-}
-
-type ByName []*upyun.FileInfo
-
-func (a ByName) Len() int           { return len(a) }
-func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByName) Less(i, j int) bool { return a[i].Name < a[j].Name }
-
-func Login(args []string, opts map[string]interface{}) {
-	user := &userInfo{CurDir: "/"}
-	if len(args) == 3 {
-		user.Bucket = args[0]
-		user.Username = args[1]
-		user.Password = args[2]
-	} else {
-		fmt.Printf("BucketName: ")
-		fmt.Scanf("%s\n", &user.Bucket)
-		fmt.Printf("Operator: ")
-		fmt.Scanf("%s\n", &user.Username)
-		fmt.Printf("Password: ")
-		b, err := gopass.GetPasswdMasked()
-		if err == nil {
-			user.Password = string(b)
-		}
-	}
-
-	LogI("\n")
-
-	if _, err := NewFsDriver(user.Bucket, user.Username,
-		user.Password, user.CurDir, 10, nil); err != nil {
-		LogC("login: %v", err)
-	}
-
-	// save
-	conf.UpdateUserInfo(user)
-	conf.Save(confname)
-
-	LogI("Welcome to %s, %s!", user.Bucket, user.Username)
-}
-
-func Logout(args []string, opts map[string]interface{}) {
-	var err error
-	if err = conf.RemoveBucket(); err == nil {
-		if len(conf.Users) == 0 {
-			err = os.Remove(confname)
-		}
-	}
-	if err != nil {
-		LogC("logout: %v", err)
-	}
-	// save
-	conf.Save(confname)
-}
-
-func SwitchSrv(args []string, opts map[string]interface{}) {
-	if len(args) > 0 {
-		bucket := args[0]
-		if err := conf.SwitchBucket(bucket); err != nil {
-			LogC("switch: %v", err)
-		}
-		// save
-		conf.Save(confname)
-	}
-}
-
-func ListSrvs(args []string, opts map[string]interface{}) {
-	for k, v := range conf.Users {
-		if k == conf.Idx {
-			LogI("* \033[33m%s\033[0m\n", v.Bucket)
-		} else {
-			LogI("  %s\n", v.Bucket)
-		}
-	}
-}
-
-func Cd(args []string, opts map[string]interface{}) {
-	path := "/"
-	if len(args) > 0 {
-		path = args[0]
-	}
-
-	var err error
-	if err = driver.ChangeDir(path); err == nil {
-		user.CurDir = driver.GetCurDir()
-		err = conf.Save(confname)
-	}
-
-	if err != nil {
-		LogC("cd %s: %v", path, err)
-	}
-}
-
-func Ls(args []string, opts map[string]interface{}) {
-	fpath := driver.GetCurDir()
-	if len(args) > 0 {
-		fpath = args[0]
-	}
-
-	if !driver.IsUPDir(fpath) {
-		info, err := driver.up.GetInfo(fpath)
-		if err != nil {
-			LogC("getinfo: %v", err)
-			return
-		}
-		info.Name = path.Base(fpath)
-		LogI(parseInfo(info))
-		return
-	}
-	maxCount, cnt, asc, onlyDir := 0, 0, true, false
-
-	if v, ok := opts["c"]; ok {
-		maxCount = v.(int)
-	}
-	if v, ok := opts["r"]; ok {
-		if v.(bool) {
-			asc = false
-		}
-	}
-	if v, ok := opts["d"]; ok {
-		if v.(bool) {
-			onlyDir = true
-		}
-	}
-
-	infos, errChannel := driver.up.GetLargeList(fpath, asc, false)
-	for {
-		select {
-		case info, more := <-infos:
-			if !more {
-				return
+func NewLoginCommand() cli.Command {
+	return cli.Command{
+		Name:  "login",
+		Usage: "Log in to UpYun",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(NO_LOGIN)
+			session = &Session{CWD: "/"}
+			args := c.Args()
+			if len(args) == 3 {
+				session.Bucket = args.Get(0)
+				session.Operator = args.Get(1)
+				session.Password = args.Get(2)
+			} else {
+				fmt.Printf("ServiceName: ")
+				fmt.Scanf("%s\n", &session.Bucket)
+				fmt.Printf("Operator: ")
+				fmt.Scanf("%s\n", &session.Operator)
+				fmt.Printf("Password: ")
+				b, err := gopass.GetPasswdMasked()
+				if err == nil {
+					session.Password = string(b)
+				}
+				// TODO
+				Print("")
 			}
-			if maxCount > 0 && cnt >= maxCount {
-				return
+
+			if err := session.Init(); err != nil {
+				PrintErrorAndExit("login failed: %v", err)
 			}
-			if onlyDir && info.Type != "folder" {
-				continue
+			Print("Welcome to %s, %s!", session.Bucket, session.Operator)
+
+			if config == nil {
+				config = &Config{
+					SessionId: 0,
+					Sessions:  []*Session{session},
+				}
+			} else {
+				config.Insert(session)
 			}
-			LogI("%s\n", parseInfo(info))
-			cnt++
-		case err := <-errChannel:
-			if err != nil {
-				LogC("ls %s: %v", fpath, err)
-				return
+			saveConfigToFile()
+
+			return nil
+		},
+	}
+}
+
+func NewLogoutCommand() cli.Command {
+	return cli.Command{
+		Name:  "logout",
+		Usage: "Log out of your UpYun account",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(NO_LOGIN)
+			if session != nil {
+				op, bucket := session.Operator, session.Bucket
+				config.PopCurrent()
+				saveConfigToFile()
+				Print("Goodbye %s/%s ~~", op, bucket)
+			} else {
+				PrintErrorAndExit("nothing to do")
 			}
-		}
+			return nil
+		},
 	}
 }
 
-func Pwd(args []string, opts map[string]interface{}) {
-	LogI(driver.GetCurDir())
-}
-
-func Get(args []string, opts map[string]interface{}) {
-	var src, des string
-	switch len(args) {
-	case 0:
-		// TODO
-	case 1:
-		src = args[0]
-		des = "./"
-	case 2:
-		src = args[0]
-		des = args[1]
-	}
-
-	if err := driver.Downloads(src, des); err != nil {
-		LogC("get %s %s: %v\n\n", src, des, err)
-	}
-
-	time.Sleep(time.Second)
-}
-
-func Sync(args []string, opts map[string]interface{}) {
-	var src, des string
-	switch len(args) {
-	case 0:
-		// TODO
-	case 1:
-		src = args[0]
-		des = "./"
-	case 2:
-		src = args[0]
-		des = args[1]
-	}
-
-	if v, ok := opts["w"]; ok {
-		maxWorker = v.(int)
-	}
-
-	doSync(src, des)
-}
-
-func Put(args []string, opts map[string]interface{}) {
-	var src, des string
-	switch len(args) {
-	case 1:
-		src, des = args[0], "./"
-	case 2:
-		src, des = args[0], args[1]
-	default:
-	}
-
-	if err := driver.Uploads(src, des); err != nil {
-		LogC("put %s %s: %v\n\n", src, des, err)
-	}
-
-	time.Sleep(time.Second)
-}
-
-func StrSplit(s string) (path, wildcard string) {
-	idx := strings.Index(s, "*")
-	if idx == -1 {
-		return s, ""
-	}
-	idx = strings.LastIndex(s[:idx], "/")
-	if idx == -1 {
-		return "./", s
-	}
-	return s[:idx+1], s[idx+1:]
-}
-
-func Rm(args []string, opts map[string]interface{}) {
-	for _, path := range args {
-		rPath, wildcard := StrSplit(path)
-		match := &MatchConfig{
-			wildcard: wildcard,
-			itemType: "file",
-		}
-		if v, exists := opts["d"]; exists && v.(bool) {
-			match.itemType = "folder"
-		}
-		if v, exists := opts["a"]; exists && v.(bool) {
-			match.itemType = ""
-		}
-		async := false
-		if v, exists := opts["async"]; exists {
-			async = v.(bool)
-		}
-		driver.RemoveMatched(rPath, match, async)
-	}
-}
-
-func Mkdir(args []string, opts map[string]interface{}) {
-	for _, path := range args {
-		if err := driver.MakeDir(path); err != nil {
-			LogC("mkdir %s: %v\n\n", path, err)
-		}
-	}
-}
-
-func Info(args []string, opts map[string]interface{}) {
-	usage, _ := driver.up.Usage()
-	output := fmt.Sprintf("BucketName: %s\n", user.Bucket)
-	output += fmt.Sprintf("Operator:    %s\n", user.Username)
-	output += fmt.Sprintf("CurrentDir:  %s\n", user.CurDir)
-	output += fmt.Sprintf("Usage:       %.3fMB\n", float64(usage)/1024/1024)
-	LogI(output)
-}
-
-func GenAuth(args []string, opts map[string]interface{}) {
-	if len(args) != 3 {
-		LogC("not enough arguments. bucket username password")
-	}
-	bucket, username, passwd := args[0], args[1], args[2]
-	LogI(genAuth(bucket, username, passwd))
-}
-
-func parseInfo(info *upyun.FileInfo) string {
-	s := "drwxrwxrwx"
-	if info.Type != "folder" {
-		s = "-rw-rw-rw-"
-	}
-	s += fmt.Sprintf(" 1 %s %s %12d", user.Username, user.Bucket, info.Size)
-	if info.Time.Year() != time.Now().Year() {
-		s += " " + strftime.Format("%b %d  %Y", info.Time)
-	} else {
-		s += " " + strftime.Format("%b %d %H:%M", info.Time)
-	}
-	s += " " + info.Name
-	return s
-}
-
-func initDriver(auth string, needUser bool) {
-	if runtime.GOOS == "windows" {
-		confname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
-		dbname = filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
-	}
-
-	logger := log.New(os.Stdout, "", 0)
-
-	if auth == "" {
-		conf = &Config{}
-		conf.Load(confname)
-
-		if needUser {
-			user = conf.GetCurUser()
-			if user != nil {
-				var err error
-				driver, err = NewFsDriver(user.Bucket, user.Username,
-					user.Password, user.CurDir, 10, logger)
+func NewAuthCommand() cli.Command {
+	return cli.Command{
+		Name:  "auth",
+		Usage: "Generate auth string",
+		Action: func(c *cli.Context) error {
+			if c.NArg() == 3 {
+				s, err := makeAuthStr(c.Args()[0], c.Args()[1], c.Args()[2])
 				if err != nil {
-					conf.RemoveBucket()
-					conf.Save(confname)
-					LogC("failed to log in. %v\n", err)
+					PrintErrorAndExit("auth: %v", err)
+				}
+				Print(s)
+			} else {
+				PrintErrorAndExit("auth: invalid parameters")
+			}
+			return nil
+		},
+	}
+}
+
+func NewListSessionsCommand() cli.Command {
+	return cli.Command{
+		Name:  "sessions",
+		Usage: "List all sessions",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(NO_LOGIN)
+			for k, v := range config.Sessions {
+				if k == config.SessionId {
+					Print("> %s", color.YellowString(v.Bucket))
+				} else {
+					Print("  %s", v.Bucket)
 				}
 			}
-		}
-	} else {
-		var err error
-		var b []byte
-		if b, err = base64.StdEncoding.DecodeString(auth); err == nil {
-			var u userInfo
-			if err = json.Unmarshal(b, &u); err == nil {
-				user = &u
-				driver, err = NewFsDriver(user.Bucket, user.Username,
-					user.Password, "/", 10, logger)
+			return nil
+		},
+	}
+}
+
+func NewSwitchSessionCommand() cli.Command {
+	return cli.Command{
+		Name:  "switch",
+		Usage: "Switch to specific session",
+		Action: func(c *cli.Context) error {
+			if c.NArg() < 1 {
+				PrintErrorAndExit("which session?")
 			}
-		}
-		if err != nil {
-			LogC("failed to log in. %v\n", err)
-		}
+			readConfigFromFile(NO_LOGIN)
+			bucket := c.Args().First()
+			for k, v := range config.Sessions {
+				if bucket == v.Bucket {
+					session = v
+					config.SessionId = k
+					saveConfigToFile()
+					Print("Welcome to %s, %s!", session.Bucket, session.Operator)
+					return nil
+				}
+			}
+			PrintErrorAndExit("switch %s: No such session", bucket)
+			return nil
+		},
+	}
+}
+
+func NewInfoCommand() cli.Command {
+	return cli.Command{
+		Name:  "info",
+		Usage: "Current session information",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			session.Info()
+			return nil
+		},
+	}
+}
+
+func NewMkdirCommand() cli.Command {
+	return cli.Command{
+		Name:  "mkdir",
+		Usage: "Make directory",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			session.Mkdir(c.Args()...)
+			return nil
+		},
+	}
+}
+
+func NewCdCommand() cli.Command {
+	return cli.Command{
+		Name:  "cd",
+		Usage: "Change directory",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			fpath := "/"
+			if c.NArg() > 0 {
+				fpath = c.Args().First()
+			}
+			session.Cd(fpath)
+			saveConfigToFile()
+			return nil
+		},
+	}
+}
+
+func NewPwdCommand() cli.Command {
+	return cli.Command{
+		Name:  "pwd",
+		Usage: "Print working directory",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			session.Pwd()
+			return nil
+		},
+	}
+}
+
+func NewLsCommand() cli.Command {
+	return cli.Command{
+		Name:  "ls",
+		Usage: "List directory or file",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			fpath := session.CWD
+			if c.NArg() > 0 {
+				fpath = c.Args().First()
+			}
+			mc := &MatchConfig{}
+			if c.Bool("d") {
+				mc.ItemType = DIR
+			}
+			base := path.Base(fpath)
+			dir := path.Dir(fpath)
+			if strings.Contains(base, "*") {
+				mc.Wildcard = base
+				fpath = dir
+			}
+			if c.String("mtime") != "" {
+				err := parseMTime(c.String("mtime"), mc)
+				if err != nil {
+					PrintErrorAndExit("ls %s: parse mtime: %v", fpath, err)
+				}
+			}
+			session.color = c.Bool("color")
+			session.Ls(fpath, mc, c.Int("c"), c.Bool("r"))
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "r", Usage: "reverse order"},
+			cli.BoolFlag{Name: "d", Usage: "only show directory"},
+			cli.BoolFlag{Name: "color", Usage: "colorful output"},
+			cli.IntFlag{Name: "c", Usage: "max items to list"},
+			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+		},
+	}
+}
+
+func NewGetCommand() cli.Command {
+	return cli.Command{
+		Name:  "get",
+		Usage: "Get directory or file",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			if c.NArg() == 0 {
+				PrintErrorAndExit("which one to get?")
+			}
+			upPath := c.Args().First()
+			localPath := "." + string(filepath.Separator)
+			if c.NArg() > 1 {
+				localPath = c.Args().Get(1)
+			}
+
+			mc := &MatchConfig{}
+			base := path.Base(upPath)
+			dir := path.Dir(upPath)
+			if strings.Contains(base, "*") {
+				mc.Wildcard, upPath = base, dir
+			}
+			if c.String("mtime") != "" {
+				err := parseMTime(c.String("mtime"), mc)
+				if err != nil {
+					PrintErrorAndExit("get %s: parse mtime: %v", upPath, err)
+				}
+			}
+			session.Get(upPath, localPath, mc, c.Int("w"))
+
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+		},
+	}
+}
+
+func NewPutCommand() cli.Command {
+	return cli.Command{
+		Name:  "put",
+		Usage: "Put directory or file",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			if c.NArg() == 0 {
+				PrintErrorAndExit("which one to put?")
+			}
+			localPath := c.Args().First()
+			upPath := "./"
+			if c.NArg() > 1 {
+				upPath = c.Args().Get(1)
+			}
+
+			session.Put(localPath, upPath, c.Int("w"))
+
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+		},
+	}
+}
+
+func NewRmCommand() cli.Command {
+	return cli.Command{
+		Name:  "rm",
+		Usage: "Remove directory or file",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			if c.NArg() == 0 {
+				PrintErrorAndExit("which one to remove?")
+			}
+			fpath := c.Args().First()
+			base := path.Base(fpath)
+			dir := path.Dir(fpath)
+			mc := &MatchConfig{
+				ItemType: FILE,
+			}
+			if strings.Contains(base, "*") {
+				mc.Wildcard, fpath = base, dir
+			}
+
+			if c.Bool("d") {
+				mc.ItemType = DIR
+			}
+			if c.Bool("a") {
+				mc.ItemType = ITEM_NOT_SET
+			}
+
+			if c.String("mtime") != "" {
+				err := parseMTime(c.String("mtime"), mc)
+				if err != nil {
+					PrintErrorAndExit("rm %s: parse mtime: %v", fpath, err)
+				}
+			}
+
+			session.Rm(fpath, mc, c.Bool("async"))
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "d", Usage: "only remove directories"},
+			cli.BoolFlag{Name: "a", Usage: "remove files, directories and their contents recursively, never prompt"},
+			cli.BoolFlag{Name: "async", Usage: "remove asynchronously"},
+			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+		},
+	}
+}
+
+func NewTreeCommand() cli.Command {
+	return cli.Command{
+		Name:  "tree",
+		Usage: "List contents of directories in a tree-like format",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			fpath := session.CWD
+			if c.NArg() > 0 {
+				fpath = c.Args().First()
+			}
+			session.color = c.Bool("color")
+			session.Tree(fpath)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "color", Usage: "colorful output"},
+		},
+	}
+}
+
+func NewSyncCommand() cli.Command {
+	return cli.Command{
+		Name:  "sync",
+		Usage: "Sync local directory to UpYun",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			if c.NArg() == 0 {
+				PrintErrorAndExit("which directory to sync?")
+			}
+			localPath := c.Args().First()
+			upPath := session.CWD
+			if c.NArg() > 1 {
+				upPath = c.Args().Get(1)
+			}
+			session.Sync(localPath, upPath, c.Int("w"), true)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+		},
+	}
+}
+
+func NewPostCommand() cli.Command {
+	return cli.Command{
+		Name:  "post",
+		Usage: "Post async process task",
+		Action: func(c *cli.Context) error {
+			readConfigFromFile(LOGIN)
+			app := c.String("app")
+			notify := c.String("notify")
+			task := c.String("task")
+			if app == "" || task == "" {
+				PrintErrorAndExit("set --app --task")
+			}
+			session.PostTask(app, notify, task)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "app", Usage: "app name"},
+			cli.StringFlag{Name: "notify", Usage: "notify url"},
+			cli.StringFlag{Name: "task", Usage: "task file"},
+		},
 	}
 }

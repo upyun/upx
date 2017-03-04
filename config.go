@@ -3,98 +3,176 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
-type userInfo struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Bucket   string `json:"bucket"`
-	CurDir   string `sjon:"curdir"`
-}
+const (
+	LOGIN    = true
+	NO_LOGIN = false
+)
 
 type Config struct {
-	Idx   int         `json:"user_idx"`
-	Users []*userInfo `json:"users"`
+	SessionId int        `json:"user_idx"`
+	Sessions  []*Session `json:"users"`
 }
 
-func (c *Config) Load(fname string) error {
-	fd, err := os.Open(fname)
-	if err != nil {
-		return err
+func (c *Config) PopCurrent() {
+	if c.SessionId == -1 {
+		c.SessionId = 0
 	}
-	defer fd.Close()
 
-	var b []byte
-	if b, err = ioutil.ReadAll(fd); err == nil {
-		if b, err = base64.StdEncoding.DecodeString(string(b)); err == nil {
-			err = json.Unmarshal(b, c)
+	c.Sessions = append(c.Sessions[0:c.SessionId], c.Sessions[c.SessionId+1:]...)
+	c.SessionId = 0
+}
+
+func (c *Config) Insert(sess *Session) {
+	for idx, s := range c.Sessions {
+		if s.Bucket == sess.Bucket && s.Operator == sess.Operator {
+			c.Sessions[idx] = sess
+			c.SessionId = idx
+			return
 		}
 	}
-
-	return err
+	c.Sessions = append(c.Sessions, sess)
+	c.SessionId = len(c.Sessions) - 1
 }
 
-func (c *Config) Save(fname string) error {
-	if len(c.Users) == 0 {
-		os.Remove(fname)
-		return nil
+var (
+	confname string
+	config   *Config
+)
+
+func makeAuthStr(bucket, operator, password string) (string, error) {
+	sess := &Session{
+		Bucket:   bucket,
+		Operator: operator,
+		Password: password,
+		CWD:      "/",
 	}
-	fd, err := os.Create(fname)
+	if err := sess.Init(); err != nil {
+		return "", err
+	}
+
+	s := []string{bucket, operator, password}
+
+	b, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return hashEncode(base64.StdEncoding.EncodeToString(b)), nil
+}
+
+func authStrToConfig(auth string) error {
+	data, err := base64.StdEncoding.DecodeString(hashEncode(auth))
 	if err != nil {
 		return err
 	}
-	defer fd.Close()
-
-	var b []byte
-	if b, err = json.Marshal(c); err == nil {
-		s := base64.StdEncoding.EncodeToString(b)
-		_, err = fd.WriteString(s)
+	ss := []string{}
+	if err := json.Unmarshal(data, &ss); err != nil {
+		return err
 	}
-
-	return err
-}
-
-func (c *Config) GetCurUser() *userInfo {
-	if c.Idx >= 0 && c.Idx < len(c.Users) {
-		return c.Users[c.Idx]
+	Print("%v", ss)
+	if len(ss) == 3 {
+		session = &Session{
+			Bucket:   ss[0],
+			Operator: ss[1],
+			Password: ss[2],
+		}
+		if err := session.Init(); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("invalid auth string")
 	}
 	return nil
 }
 
-func (c *Config) UpdateUserInfo(u *userInfo) {
-	c.Idx = -1
-	for k, v := range c.Users {
-		if v.Bucket == u.Bucket {
-			c.Idx = k
-			break
-		}
+func readConfigFromFile(login bool) {
+	if confname == "" {
+		confname = getConfigName()
 	}
-	if c.Idx == -1 {
-		c.Idx = len(c.Users)
-		c.Users = append(c.Users, u)
+
+	b, err := ioutil.ReadFile(confname)
+	if err != nil {
+		os.RemoveAll(confname)
+		if os.IsNotExist(err) && login == NO_LOGIN {
+			return
+		}
+		PrintErrorAndExit("read config: %v", err)
+	}
+
+	data, err := base64.StdEncoding.DecodeString(hashEncode(string(b)))
+	if err != nil {
+		os.RemoveAll(confname)
+		PrintErrorAndExit("read config: %v", err)
+	}
+
+	config = &Config{SessionId: -1}
+	if err := json.Unmarshal(data, config); err != nil {
+		os.RemoveAll(confname)
+		PrintErrorAndExit("read config: %v", err)
+	}
+
+	if config.SessionId != -1 && config.SessionId < len(config.Sessions) {
+		session = config.Sessions[config.SessionId]
+		if login == LOGIN {
+			if err := session.Init(); err != nil {
+				config.PopCurrent()
+				PrintErrorAndExit("Log in: %v", err)
+			}
+		}
 	} else {
-		c.Users[c.Idx] = u
-	}
-}
-
-func (c *Config) SwitchBucket(bucket string) error {
-	for k, v := range c.Users {
-		if v.Bucket == bucket {
-			c.Idx = k
-			return nil
+		if login == LOGIN {
+			PrintErrorAndExit("Log in to UpYun first")
 		}
 	}
-	return errors.New("no such bucket")
 }
 
-func (c *Config) RemoveBucket() error {
-	if c.Idx >= 0 && c.Idx < len(c.Users) {
-		c.Users = append(c.Users[0:c.Idx], c.Users[c.Idx+1:]...)
-		c.Idx = 0
-		return nil
+func saveConfigToFile() {
+	if confname == "" {
+		confname = getConfigName()
 	}
-	return errors.New("no such bucket")
+
+	b, err := json.Marshal(config)
+	if err != nil {
+		PrintErrorAndExit("save config: %v", err)
+	}
+	s := hashEncode(base64.StdEncoding.EncodeToString(b))
+
+	fd, err := os.Create(confname)
+	if err != nil {
+		PrintErrorAndExit("save config: %v", err)
+	}
+	defer fd.Close()
+	_, err = fd.WriteString(s)
+
+	if err != nil {
+		PrintErrorAndExit("save config: %v", err)
+	}
+}
+
+func getConfigName() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
+	}
+	return filepath.Join(os.Getenv("HOME"), ".upx.cfg")
+}
+
+func hashEncode(s string) string {
+	r := []rune(s)
+	for i := 0; i < len(r); i++ {
+		switch {
+		case r[i] >= 'a' && r[i] <= 'z':
+			r[i] += 'A' - 'a'
+		case r[i] >= 'A' && r[i] <= 'Z':
+			r[i] += 'a' - 'A'
+		case r[i] >= '0' && r[i] <= '9':
+			r[i] = '9' - r[i] + '0'
+		}
+	}
+	return string(r)
 }
