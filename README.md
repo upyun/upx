@@ -1,5 +1,6 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
+[![Release](https://img.shields.io/badge/release-v0.2.0-orange.svg)](https://github.com/polym/upx/releases/tag/v0.2.0)
 [![Build Status](https://travis-ci.org/polym/upx.svg?branch=master)](https://travis-ci.org/polym/upx)
 
 ## 基本功能
@@ -10,11 +11,11 @@
 - [x] 支持增量同步文件到又拍云存储
 - [x] 支持删除又拍云存储中的文件或目录，并且支持通配符 `*`
 - [x] 支持多用户，多操作系统
-- [x] **v0.2.0** 支持基于时间列目录以及删除文件
-- [x] **v0.2.0** 支持 `tree` 获取目录结构
-- [x] **v0.2.0** 支持提交异步处理任务
-- [x] **v0.2.0** 更加准确简洁的进度条
-- [x] **v0.2.0** 使用 UPYUN GoSDK 2.1.0
+- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持基于时间列目录以及删除文件
+- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持 `tree` 获取目录结构
+- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 支持提交异步处理任务
+- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 更加准确简洁的进度条
+- [x] ![v0.2.x](https://img.shields.io/badge/-v0.2.x-orange.svg) 使用 UPYUN GoSDK 2.1.0
 
 ## 安装
 
