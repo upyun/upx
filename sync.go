@@ -35,7 +35,7 @@ func makeDBKey(src, dst string) ([]byte, error) {
 }
 
 func makeDBValue(filename string) (*dbValue, error) {
-	finfo, err := os.Lstat(filename)
+	finfo, err := os.Stat(filename)
 	if err != nil {
 		return nil, err
 	}

@@ -401,14 +401,28 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 		}()
 	}
 
-	filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
-		localFiles <- &FileInfo{
-			fpath: path,
-			fInfo: info,
+	var walk func(dirname string)
+	walk = func(dirname string) {
+		fInfos, err := ioutil.ReadDir(dirname)
+		if err != nil {
+			PrintError("read dir error %s: %v", dirname, err)
+			return
 		}
-		return nil
-	})
 
+		for _, fInfo := range fInfos {
+			absPath := filepath.Join(dirname, fInfo.Name())
+			if isDir, _ := sess.IsLocalDir(absPath); isDir {
+				walk(absPath)
+			}
+
+			localFiles <- &FileInfo{
+				fpath: absPath,
+				fInfo: fInfo,
+			}
+		}
+	}
+
+	walk(localPath)
 	close(localFiles)
 	wg.Wait()
 }
@@ -635,8 +649,7 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 		return EXISTS, nil
 	}
 
-	fi, _ := os.Stat(localPath)
-	if fi.IsDir() {
+	if isDir, _ := sess.IsLocalDir(localPath); isDir {
 		err = sess.updriver.Mkdir(upPath)
 	} else {
 		err = sess.updriver.Put(&upyun.PutObjectConfig{
@@ -689,25 +702,33 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 		close(stats)
 	}()
 
+	var walk func(dirname string)
+	walk = func(dirname string) {
+		fInfos, err := ioutil.ReadDir(dirname)
+		if err != nil {
+			PrintError("read dir error %s: %v", dirname, err)
+			stats <- FAIL
+			return
+		}
+
+		for _, fInfo := range fInfos {
+			absPath := filepath.Join(dirname, fInfo.Name())
+			if isDir, _ := sess.IsLocalDir(absPath); isDir {
+				walk(absPath)
+			}
+
+			relPath, err := filepath.Rel(localPath, absPath)
+			if err != nil {
+				PrintError("relative path error %s: %v", absPath, err)
+				stats <- FAIL
+				continue
+			}
+			tasks <- &task{absPath, path.Join(upPath, filepath.ToSlash(relPath))}
+		}
+	}
+
 	go func() {
-		filepath.Walk(localPath, func(fpath string, info os.FileInfo, err error) error {
-			if err != nil {
-				PrintError("walk dir error %s: %v", fpath, err)
-				stats <- FAIL
-				return err
-			}
-			if fpath == localPath {
-				return nil
-			}
-			relPath, err := filepath.Rel(localPath, fpath)
-			if err != nil {
-				PrintError("relative path error %s: %v", fpath, err)
-				stats <- FAIL
-				return err
-			}
-			tasks <- &task{fpath, path.Join(upPath, filepath.ToSlash(relPath))}
-			return nil
-		})
+		walk(localPath)
 		close(tasks)
 	}()
 
