@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/syndtr/goleveldb/leveldb"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,8 +17,16 @@ type dbKey struct {
 	DstPath string `json:"dst_path"`
 }
 
+type fileMeta struct {
+	Name  string `json:"name"`
+	IsDir bool   `json:"isdir"`
+}
+
 type dbValue struct {
-	ModifyTime int64 `json:"modify_time"`
+	ModifyTime int64       `json:"modify_time"`
+	Md5        string      `json:"md5"`
+	IsDir      string      `json:"isdir"`
+	Items      []*fileMeta `json:"items"`
 }
 
 func getDBName() string {
@@ -39,7 +48,19 @@ func makeDBValue(filename string) (*dbValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &dbValue{finfo.ModTime().UnixNano()}, nil
+
+	dbV := &dbValue{
+		ModifyTime: finfo.ModTime().UnixNano(),
+	}
+
+	if !finfo.IsDir() {
+		md5Str, _ := md5File(filename)
+		dbV.Md5 = md5Str
+		dbV.IsDir = "false"
+	} else {
+		dbV.IsDir = "true"
+	}
+	return dbV, nil
 }
 
 func getDBValue(src, dst string) (*dbValue, error) {
@@ -82,6 +103,56 @@ func setDBValue(src, dst string, v *dbValue) error {
 	}
 
 	return db.Put(key, b, nil)
+}
+
+func delDBValue(src, dst string) error {
+	key, err := makeDBKey(src, dst)
+	if err != nil {
+		return err
+	}
+
+	return db.Delete(key, nil)
+
+}
+
+func makeFileMetas(dirname string) ([]*fileMeta, error) {
+	var res []*fileMeta
+	fInfos, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		return res, err
+	}
+	for _, fInfo := range fInfos {
+		fpath := filepath.Join(dirname, fInfo.Name())
+		fi, _ := os.Stat(fpath)
+		if fi != nil && fi.IsDir() {
+			res = append(res, &fileMeta{fInfo.Name(), true})
+		} else {
+			res = append(res, &fileMeta{fInfo.Name(), false})
+		}
+	}
+	return res, nil
+}
+
+func diffFileMetas(src []*fileMeta, dst []*fileMeta) []*fileMeta {
+	i, j := 0, 0
+	var res []*fileMeta
+	for i < len(src) && j < len(dst) {
+		if src[i].Name < dst[j].Name {
+			res = append(res, src[i])
+			i++
+		} else if src[i].Name == dst[j].Name {
+			if src[i].IsDir != dst[j].IsDir {
+				res = append(res, src[i])
+			}
+			i++
+			j++
+		} else {
+			j++
+		}
+	}
+
+	res = append(res, src[i:]...)
+	return res
 }
 
 func initDB() (err error) {
