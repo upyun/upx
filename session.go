@@ -639,6 +639,11 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 	if isDir {
 		err = sess.updriver.Mkdir(upPath)
 	} else {
+		defer func() {
+			if status == EXISTS || status == SUCC {
+				setDBValue(localPath, upPath, diskV)
+			}
+		}()
 		dbV, err := getDBValue(localPath, upPath)
 		if err != nil {
 			return FAIL, err
@@ -667,12 +672,7 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 	}
 
 	if err == nil {
-		if isDir {
-			return SUCC, nil
-		}
-		if err = setDBValue(localPath, upPath, diskV); err == nil {
-			return SUCC, nil
-		}
+		return SUCC, nil
 	}
 	return FAIL, err
 }
