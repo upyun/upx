@@ -695,6 +695,7 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 		PrintErrorAndExit("sync: init database: %v", err)
 	}
 
+	var dlock sync.Mutex
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
@@ -713,11 +714,13 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 					}
 					stats <- stat
 				case "delete":
+					dlock.Lock()
 					if task.isdir {
 						sess.rmDir(task.dst, false)
 					} else {
 						sess.rmFile(task.dst, false)
 					}
+					dlock.Unlock()
 					delDBValue(task.src, task.dst)
 					stats <- DELETE
 				}
