@@ -5,9 +5,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
-var isVerbose = true
+var (
+	isVerbose = true
+	mu        = &sync.Mutex{}
+)
 
 type WrappedWriter struct {
 	w      io.WriteCloser
@@ -41,7 +45,9 @@ func Print(arg0 string, args ...interface{}) {
 	if !strings.HasSuffix(s, "\n") {
 		s += "\n"
 	}
+	mu.Lock()
 	os.Stdout.WriteString(s)
+	mu.Unlock()
 }
 
 func PrintOnlyVerbose(arg0 string, args ...interface{}) {
@@ -55,7 +61,9 @@ func PrintError(arg0 string, args ...interface{}) {
 	if !strings.HasSuffix(s, "\n") {
 		s += "\n"
 	}
+	mu.Lock()
 	os.Stderr.WriteString(s)
+	mu.Unlock()
 }
 
 func PrintErrorAndExit(arg0 string, args ...interface{}) {

@@ -372,11 +372,12 @@ func NewSyncCommand() cli.Command {
 			if c.NArg() > 1 {
 				upPath = c.Args().Get(1)
 			}
-			session.Sync(localPath, upPath, c.Int("w"), true)
+			session.Sync(localPath, upPath, c.Int("w"), c.Bool("delete"))
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.BoolFlag{Name: "delete", Usage: "delete extraneous files from last sync"},
 		},
 	}
 }

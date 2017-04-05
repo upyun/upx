@@ -1,7 +1,12 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -114,4 +119,30 @@ func humanizeSize(b int64) string {
 		s = s[:ed+1]
 	}
 	return s + unit[u]
+}
+
+func md5File(fpath string) (string, error) {
+	fd, err := os.Open(fpath)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+	hash := md5.New()
+	if _, err := io.Copy(hash, fd); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func walk(root string, f func(string, os.FileInfo, error)) {
+	fi, err := os.Stat(root)
+	if err == nil && fi != nil && fi.IsDir() {
+		fInfos, err := ioutil.ReadDir(root)
+		f(root, fi, err)
+		for _, fInfo := range fInfos {
+			walk(filepath.Join(root, fInfo.Name()), f)
+		}
+	} else {
+		f(root, fi, err)
+	}
 }

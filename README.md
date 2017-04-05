@@ -16,6 +16,7 @@
 - [x] **`v0.2.x`** 支持提交异步处理任务
 - [x] **`v0.2.x`** 更加准确简洁的进度条
 - [x] **`v0.2.x`** 使用 UPYUN GoSDK 2.1.0
+- [x] **`v0.2.x`** 同步目录支持 --delete
 
 ## 安装
 
@@ -100,9 +101,10 @@ $ go get github.com/polym/upx
 
 > sync 本地路径 存储路径
 
-| options | 说明 |
-| ------- | ---- |
-| -w      | 指定并发数，默认为 5 |
+| options  | 说明 |
+| -------- | ---- |
+| -w       | 指定并发数，默认为 5 |
+| --delete | 删除上一次同步后本地删除的文件 |
 
 ### 生成 auth 串 `auth`
 
@@ -121,5 +123,4 @@ $ go get github.com/polym/upx
 ## TODO
 
 - [ ] put 支持断点续传
-- [ ] sync 支持 --delete
 - [ ] upx 支持指定 API 地址

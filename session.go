@@ -21,6 +21,7 @@ const (
 	EXISTS = iota
 	SUCC
 	FAIL
+	DELETE
 )
 
 type Session struct {
@@ -31,6 +32,8 @@ type Session struct {
 
 	updriver *upyun.UpYun
 	color    bool
+	stats    map[string]int
+	smu      sync.RWMutex
 }
 
 var (
@@ -401,12 +404,13 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 		}()
 	}
 
-	filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
-		localFiles <- &FileInfo{
-			fpath: path,
-			fInfo: info,
+	walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
+		if err == nil {
+			localFiles <- &FileInfo{
+				fpath: fpath,
+				fInfo: fInfo,
+			}
 		}
-		return nil
 	})
 
 	close(localFiles)
@@ -447,13 +451,22 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 }
 
 func (sess *Session) rmFile(fpath string, isAsync bool) {
+	if sess.stats == nil {
+		sess.stats = make(map[string]int)
+	}
 	err := sess.updriver.Delete(&upyun.DeleteObjectConfig{
 		Path:  fpath,
 		Async: isAsync,
 	})
 	if err == nil {
+		sess.smu.Lock()
+		sess.stats["ok"]++
+		sess.smu.Unlock()
 		PrintOnlyVerbose("DELETE %s OK", fpath)
 	} else {
+		sess.smu.Lock()
+		sess.stats["fail"]++
+		sess.smu.Unlock()
 		PrintError("DELETE %s FAIL %v", fpath, err)
 	}
 }
@@ -621,24 +634,37 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 		return FAIL, err
 	}
 
-	diskV, err := makeDBValue(localPath)
-	if err != nil {
-		return FAIL, err
-	}
-
-	dbV, err := getDBValue(localPath, upPath)
-	if err != nil {
-		return FAIL, err
-	}
-
-	if dbV != nil && dbV.ModifyTime == diskV.ModifyTime {
-		return EXISTS, nil
-	}
-
-	fi, _ := os.Stat(localPath)
-	if fi.IsDir() {
+	diskV := &dbValue{}
+	isDir, _ := sess.IsLocalDir(localPath)
+	if isDir {
 		err = sess.updriver.Mkdir(upPath)
 	} else {
+		defer func() {
+			if status == EXISTS || status == SUCC {
+				setDBValue(localPath, upPath, diskV)
+			}
+		}()
+		dbV, err := getDBValue(localPath, upPath)
+		if err != nil {
+			return FAIL, err
+		}
+
+		fInfo, err := os.Stat(localPath)
+		if err != nil {
+			return FAIL, err
+		}
+
+		diskV.ModifyTime = fInfo.ModTime().UnixNano()
+		diskV.Md5, _ = md5File(localPath)
+		diskV.IsDir = "false"
+		if dbV != nil {
+			if dbV.ModifyTime == diskV.ModifyTime {
+				return EXISTS, nil
+			}
+			if dbV.Md5 != "" && dbV.Md5 == diskV.Md5 {
+				return EXISTS, nil
+			}
+		}
 		err = sess.updriver.Put(&upyun.PutObjectConfig{
 			Path:      upPath,
 			LocalPath: localPath,
@@ -646,40 +672,58 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 	}
 
 	if err == nil {
-		if err = setDBValue(localPath, upPath, diskV); err == nil {
-			return SUCC, nil
-		}
+		return SUCC, nil
 	}
 	return FAIL, err
 }
 
 func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
-	type task struct{ src, dst string }
+	type task struct {
+		src, dst, typ string
+		isdir         bool
+	}
 	var wg sync.WaitGroup
 	tasks := make(chan *task, workers*2)
 	stats := make(chan int, workers*2)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
+	upPath = sess.AbsPath(upPath)
+	localPath, _ = filepath.Abs(localPath)
+
 	if err := initDB(); err != nil {
 		PrintErrorAndExit("sync: init database: %v", err)
 	}
 
+	var dlock sync.Mutex
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for task := range tasks {
-				stat, err := sess.syncOneObject(task.src, task.dst)
-				switch stat {
-				case SUCC:
-					PrintOnlyVerbose("sync %s to %s OK", task.src, task.dst)
-				case EXISTS:
-					PrintOnlyVerbose("sync %s to %s EXISTS", task.src, task.dst)
-				case FAIL:
-					PrintError("sync %s to %s FAIL %v", task.src, task.dst, err)
+				switch task.typ {
+				case "sync":
+					stat, err := sess.syncOneObject(task.src, task.dst)
+					switch stat {
+					case SUCC:
+						PrintOnlyVerbose("sync %s to %s OK", task.src, task.dst)
+					case EXISTS:
+						PrintOnlyVerbose("sync %s to %s EXISTS", task.src, task.dst)
+					case FAIL:
+						PrintError("sync %s to %s FAIL %v", task.src, task.dst, err)
+					}
+					stats <- stat
+				case "delete":
+					dlock.Lock()
+					if task.isdir {
+						sess.rmDir(task.dst, false)
+					} else {
+						sess.rmFile(task.dst, false)
+					}
+					dlock.Unlock()
+					delDBValue(task.src, task.dst)
+					stats <- DELETE
 				}
-				stats <- stat
 			}
 		}()
 	}
@@ -690,38 +734,85 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 	}()
 
 	go func() {
-		filepath.Walk(localPath, func(fpath string, info os.FileInfo, err error) error {
+		walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
 			if err != nil {
 				PrintError("walk dir error %s: %v", fpath, err)
 				stats <- FAIL
-				return err
+				return
 			}
-			if fpath == localPath {
-				return nil
-			}
-			relPath, err := filepath.Rel(localPath, fpath)
+
+			uppath, err := filepath.Rel(localPath, fpath)
 			if err != nil {
-				PrintError("relative path error %s: %v", fpath, err)
+				PrintError("get relative path error %s: %v", fpath, err)
 				stats <- FAIL
-				return err
+				return
 			}
-			tasks <- &task{fpath, path.Join(upPath, filepath.ToSlash(relPath))}
-			return nil
+			uppath = path.Join(upPath, uppath)
+
+			if fInfo.IsDir() {
+				// check node info
+				dbV, err := getDBValue(fpath, uppath)
+				if err != nil {
+					PrintError("get db error %s %v", fpath, err)
+					stats <- FAIL
+					return
+				}
+
+				// get meta info
+				fMetas, err := makeFileMetas(fpath)
+				if err != nil {
+					PrintError("make file metas error %s: %v", fpath, err)
+					stats <- FAIL
+					return
+				}
+				// update info
+				curDBV, _ := makeDBValue(fpath)
+				curDBV.Items = fMetas
+				setDBValue(fpath, uppath, curDBV)
+
+				// no value before
+				if dbV == nil {
+					tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
+				} else {
+					if delete {
+						for _, meta := range diffFileMetas(dbV.Items, fMetas) {
+							tasks <- &task{
+								src:   filepath.Join(fpath, meta.Name),
+								dst:   path.Join(uppath, meta.Name),
+								typ:   "delete",
+								isdir: meta.IsDir,
+							}
+						}
+					}
+
+					if dbV.IsDir == "false" {
+						tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
+					} else {
+						PrintOnlyVerbose("sync %s to %s EXISTS", fpath, uppath)
+						stats <- EXISTS
+					}
+				}
+			} else {
+				tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
+			}
 		})
 		close(tasks)
 	}()
 
-	counts := make([]int, 3)
+	counts := make([]int, 4)
 	for {
 		select {
 		case <-sigChan:
-			PrintErrorAndExit("%d succs, %d fails, %d ignores.\n", counts[SUCC], counts[FAIL], counts[EXISTS])
+			PrintErrorAndExit("%d succs, %d fails, %d ignores, %d/%d dels.\n",
+				counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
 		case t, more := <-stats:
 			if !more {
-				if counts[FAIL] == 0 {
-					Print("%d succs, %d fails, %d ignores.\n", counts[SUCC], counts[FAIL], counts[EXISTS])
+				if counts[FAIL] == 0 && sess.stats["fail"] == 0 {
+					Print("%d succs, %d fails, %d ignores, %d/%d dels.\n",
+						counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
 				} else {
-					PrintErrorAndExit("%d succs, %d fails, %d ignores.\n", counts[SUCC], counts[FAIL], counts[EXISTS])
+					PrintErrorAndExit("%d succs, %d fails, %d ignores, %d/%d dels.\n",
+						counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
 				}
 				return
 			}

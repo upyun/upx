@@ -34,10 +34,13 @@ release:
 
 upload: release
 	./upx pwd
-	for OS in linux windows darwin; do \
+	for OS in linux darwin; do \
 		for ARCH in amd64 386; do \
 			./upx put upx-$$OS-$$ARCH-$(VER) /softwares/upx/; \
 		done \
+	done
+	for ARCH in amd64 386; do \
+		./upx put upx-windows-$$ARCH-$(VER) /softwares/upx/upx-windows-$$ARCH-$(VER).exe; \
 	done
 
 .PHONY: app vendor test release upload
