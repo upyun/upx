@@ -42,6 +42,13 @@ or
 $ go get github.com/polym/upx
 ```
 
+### Docker
+
+```bash
+docker build -t upx .
+docker run --rm upx -v
+```
+
 ## 使用
 
 > 所有命令都支持 `-h` 查看使用方法
