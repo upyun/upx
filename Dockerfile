@@ -1,5 +1,5 @@
 FROM golang:alpine
-COPY . /go/src/app
-WORKDIR /go/src/app
-RUN go-wrapper download && go-wrapper install
-ENTRYPOINT ["go-wrapper", "run"]
+COPY . /go/src/upx
+WORKDIR /go/src/upx
+RUN go get -d -v && go install -v
+CMD ["upx"]

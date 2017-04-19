@@ -46,7 +46,7 @@ $ go get github.com/polym/upx
 
 ```bash
 docker build -t upx .
-docker run --rm upx -v
+docker run --rm upx upx -v
 ```
 
 ## 使用
