@@ -747,7 +747,7 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 				stats <- FAIL
 				return
 			}
-			uppath = path.Join(upPath, uppath)
+			uppath = path.Join(upPath, filepath.ToSlash(uppath))
 
 			if fInfo.IsDir() {
 				// check node info
