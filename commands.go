@@ -248,9 +248,6 @@ func NewGetCommand() cli.Command {
 			if session == nil {
 				readConfigFromFile(LOGIN)
 			}
-			if c.NArg() == 0 {
-				PrintErrorAndExit("which one to get?")
-			}
 
 			upPath := c.Args().First()
 			localPath := "." + string(filepath.Separator)
@@ -435,6 +432,7 @@ func NewPurgeCommand() cli.Command {
 			}
 			if c.NumFlags() == 0 && c.NArg() == 0 {
 				cli.ShowCommandHelp(c, "purge")
+				os.Exit(-1)
 				return nil
 			}
 			list := c.String("list")
