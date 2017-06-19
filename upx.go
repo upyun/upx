@@ -57,6 +57,7 @@ func main() {
 		NewSyncCommand(),
 		NewAuthCommand(),
 		NewPostCommand(),
+		NewPurgeCommand(),
 	}
 
 	app.Run(os.Args)

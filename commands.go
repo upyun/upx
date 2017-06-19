@@ -251,6 +251,7 @@ func NewGetCommand() cli.Command {
 			if c.NArg() == 0 {
 				PrintErrorAndExit("which one to get?")
 			}
+
 			upPath := c.Args().First()
 			localPath := "." + string(filepath.Separator)
 			if c.NArg() > 1 {
@@ -413,9 +414,6 @@ func NewPostCommand() cli.Command {
 			app := c.String("app")
 			notify := c.String("notify")
 			task := c.String("task")
-			if app == "" || task == "" {
-				PrintErrorAndExit("set --app --task")
-			}
 			session.PostTask(app, notify, task)
 			return nil
 		},
@@ -423,6 +421,28 @@ func NewPostCommand() cli.Command {
 			cli.StringFlag{Name: "app", Usage: "app name"},
 			cli.StringFlag{Name: "notify", Usage: "notify url"},
 			cli.StringFlag{Name: "task", Usage: "task file"},
+		},
+	}
+}
+
+func NewPurgeCommand() cli.Command {
+	return cli.Command{
+		Name:  "purge",
+		Usage: "refresh CDN cache",
+		Action: func(c *cli.Context) error {
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
+			if c.NumFlags() == 0 && c.NArg() == 0 {
+				cli.ShowCommandHelp(c, "purge")
+				return nil
+			}
+			list := c.String("list")
+			session.Purge(c.Args(), list)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "list", Usage: "file which contains urls"},
 		},
 	}
 }
