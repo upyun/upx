@@ -5,6 +5,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/fatih/color"
 	"github.com/howeyc/gopass"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
