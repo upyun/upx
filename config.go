@@ -80,6 +80,7 @@ func authStrToConfig(auth string) error {
 			Bucket:   ss[0],
 			Operator: ss[1],
 			Password: ss[2],
+			CWD:      "/",
 		}
 		if err := session.Init(); err != nil {
 			return err
