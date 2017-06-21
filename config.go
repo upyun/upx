@@ -75,12 +75,12 @@ func authStrToConfig(auth string) error {
 	if err := json.Unmarshal(data, &ss); err != nil {
 		return err
 	}
-	Print("%v", ss)
 	if len(ss) == 3 {
 		session = &Session{
 			Bucket:   ss[0],
 			Operator: ss[1],
 			Password: ss[2],
+			CWD:      "/",
 		}
 		if err := session.Init(); err != nil {
 			return err

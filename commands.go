@@ -142,7 +142,9 @@ func NewInfoCommand() cli.Command {
 		Name:  "info",
 		Usage: "Current session information",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			session.Info()
 			return nil
 		},
@@ -154,7 +156,9 @@ func NewMkdirCommand() cli.Command {
 		Name:  "mkdir",
 		Usage: "Make directory",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			session.Mkdir(c.Args()...)
 			return nil
 		},
@@ -166,7 +170,9 @@ func NewCdCommand() cli.Command {
 		Name:  "cd",
 		Usage: "Change directory",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			fpath := "/"
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -183,7 +189,9 @@ func NewPwdCommand() cli.Command {
 		Name:  "pwd",
 		Usage: "Print working directory",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			session.Pwd()
 			return nil
 		},
@@ -195,7 +203,9 @@ func NewLsCommand() cli.Command {
 		Name:  "ls",
 		Usage: "List directory or file",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -235,7 +245,9 @@ func NewGetCommand() cli.Command {
 		Name:  "get",
 		Usage: "Get directory or file",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			if c.NArg() == 0 {
 				PrintErrorAndExit("which one to get?")
 			}
@@ -273,7 +285,9 @@ func NewPutCommand() cli.Command {
 		Name:  "put",
 		Usage: "Put directory or file",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			if c.NArg() == 0 {
 				PrintErrorAndExit("which one to put?")
 			}
@@ -298,7 +312,9 @@ func NewRmCommand() cli.Command {
 		Name:  "rm",
 		Usage: "Remove directory or file",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			if c.NArg() == 0 {
 				PrintErrorAndExit("which one to remove?")
 			}
@@ -343,7 +359,9 @@ func NewTreeCommand() cli.Command {
 		Name:  "tree",
 		Usage: "List contents of directories in a tree-like format",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -363,7 +381,9 @@ func NewSyncCommand() cli.Command {
 		Name:  "sync",
 		Usage: "Sync local directory to UpYun",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			if c.NArg() == 0 {
 				PrintErrorAndExit("which directory to sync?")
 			}
@@ -387,7 +407,9 @@ func NewPostCommand() cli.Command {
 		Name:  "post",
 		Usage: "Post async process task",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(LOGIN)
+			if session == nil {
+				readConfigFromFile(LOGIN)
+			}
 			app := c.String("app")
 			notify := c.String("notify")
 			task := c.String("task")
