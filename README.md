@@ -1,6 +1,6 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
-[![Release](https://img.shields.io/badge/release-v0.2.1-orange.svg)](https://github.com/polym/upx/releases/tag/v0.2.1)
+[![Release](https://img.shields.io/badge/release-v0.2.2-orange.svg)](https://github.com/polym/upx/releases/tag/v0.2.2)
 [![Build Status](https://travis-ci.org/polym/upx.svg?branch=master)](https://travis-ci.org/polym/upx)
 
 ## 基本功能
@@ -11,22 +11,23 @@
 - [x] 支持增量同步文件到又拍云存储
 - [x] 支持删除又拍云存储中的文件或目录，并且支持通配符 `*`
 - [x] 支持多用户，多操作系统
-- [x] **`v0.2.x`** 支持基于时间列目录以及删除文件
-- [x] **`v0.2.x`** 支持 `tree` 获取目录结构
-- [x] **`v0.2.x`** 支持提交异步处理任务
-- [x] **`v0.2.x`** 更加准确简洁的进度条
-- [x] **`v0.2.x`** 使用 UPYUN GoSDK 2.1.0
-- [x] **`v0.2.x`** 同步目录支持 --delete
+- [x] 支持基于时间列目录以及删除文件
+- [x] 支持 `tree` 获取目录结构
+- [x] 支持提交异步处理任务
+- [x] 更加准确简洁的进度条
+- [x] 使用 UPYUN GoSDK 2.1.0
+- [x] 同步目录支持 --delete
+- [x] 支持 CDN 缓存刷新
 
 ## 安装
 
 ### 可执行程序二进制下载地址
 
-- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.2.1)
-- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.2.1)
-- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.2.1.exe)
-- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.2.1.exe)
-- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.2.1)
+- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.2.2)
+- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.2.2)
+- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.2.2.exe)
+- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.2.2.exe)
+- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.2.2)
 
 ### 源码编译
 
@@ -71,6 +72,7 @@ docker run --rm upx upx -v
 | sync     | 目录增量同步，类似 rsync |
 | auth     | 生成包含空间名操作员密码信息的 auth 字符串 |
 | post     | 提交异步处理任务 |
+| purge    | 提交 CDN 缓存刷新任务 |
 
 
 | global options | 说明 |
@@ -126,6 +128,14 @@ docker run --rm upx upx -v
 | --app value    | app 名称 |
 | --notify value | 回调地址 |
 | --task value   | 任务文件名 |
+
+### 缓存刷新 `purge`
+
+> purge url --list urls
+
+|     options    | 说明 |
+| -------------- | ---- |
+| --list value   | 批量刷新文件名 |
 
 ## TODO
 
