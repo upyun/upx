@@ -86,7 +86,8 @@ func TestPurge(t *testing.T) {
 
 	fd, _ := os.Create("list")
 	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/test.jpg\n", BUCKET_1))
-	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/test2.jpg\n", BUCKET_1))
+	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/测试.jpg\n", BUCKET_1))
+	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/%%E5%%8F%%88%%E6%%8B%%8D%%E4%%BA%%91.jpg\n", BUCKET_1))
 	fd.Close()
 
 	b, err = Upx("purge", "--list", "list")
