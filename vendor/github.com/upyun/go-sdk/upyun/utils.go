@@ -39,6 +39,30 @@ func hmacSha1(key string, data []byte) []byte {
 	return hm.Sum(nil)
 }
 
+func ishex(c byte) bool {
+	switch {
+	case '0' <= c && c <= '9':
+		return true
+	case 'a' <= c && c <= 'f':
+		return true
+	case 'A' <= c && c <= 'F':
+		return true
+	}
+	return false
+}
+
+func unhex(c byte) byte {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0'
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10
+	}
+	return 0
+}
+
 func escapeUri(uri string) (string, error) {
 	uri = path.Join("/", uri)
 	u, err := url.ParseRequestURI(uri)
@@ -46,6 +70,36 @@ func escapeUri(uri string) (string, error) {
 		return "", err
 	}
 	return u.String(), nil
+}
+
+func unescapeUri(s string) string {
+	n := 0
+	for i := 0; i < len(s); n++ {
+		switch s[i] {
+		case '%':
+			if i+2 >= len(s) || !ishex(s[i+1]) || !ishex(s[i+2]) {
+				// if not correct, return original string
+				return s
+			}
+			i += 3
+		default:
+			i++
+		}
+	}
+
+	t := make([]byte, n)
+	j := 0
+	for i := 0; i < len(s); j++ {
+		switch s[i] {
+		case '%':
+			t[j] = unhex(s[i+1])<<4 | unhex(s[i+2])
+			i += 3
+		default:
+			t[j] = s[i]
+			i++
+		}
+	}
+	return string(t)
 }
 
 var readHTTPBody = ioutil.ReadAll

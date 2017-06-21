@@ -13,7 +13,7 @@ import (
 func (up *UpYun) Purge(urls []string) (fails []string, err error) {
 	purge := "http://purge.upyun.com/purge/"
 	date := makeRFC1123Date(time.Now())
-	purgeList := strings.Join(urls, "\n")
+	purgeList := unescapeUri(strings.Join(urls, "\n"))
 
 	headers := map[string]string{
 		"Date": date,

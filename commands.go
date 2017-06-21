@@ -5,17 +5,40 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/fatih/color"
 	"github.com/howeyc/gopass"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 )
+
+const (
+	NO_CHECK = false
+	CHECK    = true
+)
+
+func Init(login bool) {
+	InitAndCheck(login, false, nil)
+}
+
+func InitAndCheck(login, check bool, c *cli.Context) {
+	if login == LOGIN && session == nil {
+		readConfigFromFile(LOGIN)
+	}
+	if login == NO_LOGIN {
+		readConfigFromFile(NO_LOGIN)
+	}
+	if check && c.NArg() == 0 && c.NumFlags() == 0 {
+		cli.ShowCommandHelp(c, c.Command.Name)
+		os.Exit(-1)
+	}
+}
 
 func NewLoginCommand() cli.Command {
 	return cli.Command{
 		Name:  "login",
 		Usage: "Log in to UpYun",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(NO_LOGIN)
+			Init(NO_LOGIN)
 			session = &Session{CWD: "/"}
 			args := c.Args()
 			if len(args) == 3 {
@@ -61,7 +84,7 @@ func NewLogoutCommand() cli.Command {
 		Name:  "logout",
 		Usage: "Log out of your UpYun account",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(NO_LOGIN)
+			Init(NO_LOGIN)
 			if session != nil {
 				op, bucket := session.Operator, session.Bucket
 				config.PopCurrent()
@@ -99,7 +122,7 @@ func NewListSessionsCommand() cli.Command {
 		Name:  "sessions",
 		Usage: "List all sessions",
 		Action: func(c *cli.Context) error {
-			readConfigFromFile(NO_LOGIN)
+			Init(NO_LOGIN)
 			for k, v := range config.Sessions {
 				if k == config.SessionId {
 					Print("> %s", color.YellowString(v.Bucket))
@@ -117,10 +140,7 @@ func NewSwitchSessionCommand() cli.Command {
 		Name:  "switch",
 		Usage: "Switch to specific session",
 		Action: func(c *cli.Context) error {
-			if c.NArg() < 1 {
-				PrintErrorAndExit("which session?")
-			}
-			readConfigFromFile(NO_LOGIN)
+			InitAndCheck(NO_LOGIN, CHECK, c)
 			bucket := c.Args().First()
 			for k, v := range config.Sessions {
 				if bucket == v.Bucket {
@@ -142,9 +162,7 @@ func NewInfoCommand() cli.Command {
 		Name:  "info",
 		Usage: "Current session information",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			Init(LOGIN)
 			session.Info()
 			return nil
 		},
@@ -156,9 +174,7 @@ func NewMkdirCommand() cli.Command {
 		Name:  "mkdir",
 		Usage: "Make directory",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			session.Mkdir(c.Args()...)
 			return nil
 		},
@@ -170,9 +186,7 @@ func NewCdCommand() cli.Command {
 		Name:  "cd",
 		Usage: "Change directory",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			Init(LOGIN)
 			fpath := "/"
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -189,9 +203,7 @@ func NewPwdCommand() cli.Command {
 		Name:  "pwd",
 		Usage: "Print working directory",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			Init(LOGIN)
 			session.Pwd()
 			return nil
 		},
@@ -203,9 +215,7 @@ func NewLsCommand() cli.Command {
 		Name:  "ls",
 		Usage: "List directory or file",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			Init(LOGIN)
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -245,12 +255,7 @@ func NewGetCommand() cli.Command {
 		Name:  "get",
 		Usage: "Get directory or file",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
-			if c.NArg() == 0 {
-				PrintErrorAndExit("which one to get?")
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			upPath := c.Args().First()
 			localPath := "." + string(filepath.Separator)
 			if c.NArg() > 1 {
@@ -285,12 +290,7 @@ func NewPutCommand() cli.Command {
 		Name:  "put",
 		Usage: "Put directory or file",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
-			if c.NArg() == 0 {
-				PrintErrorAndExit("which one to put?")
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
 			upPath := "./"
 			if c.NArg() > 1 {
@@ -312,12 +312,7 @@ func NewRmCommand() cli.Command {
 		Name:  "rm",
 		Usage: "Remove directory or file",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
-			if c.NArg() == 0 {
-				PrintErrorAndExit("which one to remove?")
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			fpath := c.Args().First()
 			base := path.Base(fpath)
 			dir := path.Dir(fpath)
@@ -359,9 +354,7 @@ func NewTreeCommand() cli.Command {
 		Name:  "tree",
 		Usage: "List contents of directories in a tree-like format",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			Init(LOGIN)
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -381,12 +374,7 @@ func NewSyncCommand() cli.Command {
 		Name:  "sync",
 		Usage: "Sync local directory to UpYun",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
-			if c.NArg() == 0 {
-				PrintErrorAndExit("which directory to sync?")
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
 			upPath := session.CWD
 			if c.NArg() > 1 {
@@ -407,15 +395,10 @@ func NewPostCommand() cli.Command {
 		Name:  "post",
 		Usage: "Post async process task",
 		Action: func(c *cli.Context) error {
-			if session == nil {
-				readConfigFromFile(LOGIN)
-			}
+			InitAndCheck(LOGIN, CHECK, c)
 			app := c.String("app")
 			notify := c.String("notify")
 			task := c.String("task")
-			if app == "" || task == "" {
-				PrintErrorAndExit("set --app --task")
-			}
 			session.PostTask(app, notify, task)
 			return nil
 		},
@@ -423,6 +406,22 @@ func NewPostCommand() cli.Command {
 			cli.StringFlag{Name: "app", Usage: "app name"},
 			cli.StringFlag{Name: "notify", Usage: "notify url"},
 			cli.StringFlag{Name: "task", Usage: "task file"},
+		},
+	}
+}
+
+func NewPurgeCommand() cli.Command {
+	return cli.Command{
+		Name:  "purge",
+		Usage: "refresh CDN cache",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			list := c.String("list")
+			session.Purge(c.Args(), list)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "list", Usage: "file which contains urls"},
 		},
 	}
 }

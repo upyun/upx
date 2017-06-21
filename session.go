@@ -851,3 +851,46 @@ func (sess *Session) PostTask(app, notify, taskFile string) {
 	}
 	Print("%v", ids)
 }
+
+func (sess *Session) Purge(urls []string, file string) {
+	if urls == nil {
+		urls = make([]string, 0)
+	}
+	if file != "" {
+		fd, err := os.Open(file)
+		if err != nil {
+			PrintErrorAndExit("open %s: %v", file, err)
+		}
+		body, err := ioutil.ReadAll(fd)
+		fd.Close()
+		if err != nil {
+			PrintErrorAndExit("read %s: %v", file, err)
+		}
+		for _, line := range strings.Split(string(body), "\n") {
+			if line == "" {
+				continue
+			}
+			urls = append(urls, line)
+		}
+	}
+	for idx := range urls {
+		if !strings.HasPrefix(urls[idx], "http") {
+			urls[idx] = "http://" + urls[idx]
+		}
+	}
+	if len(urls) == 0 {
+		return
+	}
+
+	fails, err := sess.updriver.Purge(urls)
+	if fails != nil && len(fails) != 0 {
+		PrintError("Purge failed urls:")
+		for _, url := range fails {
+			PrintError("%s", url)
+		}
+		PrintErrorAndExit("too many fails")
+	}
+	if err != nil {
+		PrintErrorAndExit("purge error: %v", err)
+	}
+}
