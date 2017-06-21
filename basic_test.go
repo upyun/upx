@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -70,4 +71,25 @@ func TestSessionsAndSwitch(t *testing.T) {
 
 //TODO
 func TestAuth(t *testing.T) {
+}
+
+func TestPurge(t *testing.T) {
+	SetUp()
+	defer TearDown()
+	b, err := Upx("purge", fmt.Sprintf("http://%s.b0.upaiyun.com/test.jpg", BUCKET_1))
+	Nil(t, err)
+	Equal(t, len(b), 0)
+
+	b, err = Upx("purge", "http://www.baidu.com")
+	NotNil(t, err)
+	Equal(t, err.Error(), fmt.Sprintf("Purge failed urls:\nhttp://www.baidu.com\ntoo many fails\n"))
+
+	fd, _ := os.Create("list")
+	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/test.jpg\n", BUCKET_1))
+	fd.WriteString(fmt.Sprintf("http://%s.b0.upaiyun.com/test2.jpg\n", BUCKET_1))
+	fd.Close()
+
+	b, err = Upx("purge", "--list", "list")
+	Nil(t, err)
+	Equal(t, len(b), 0)
 }

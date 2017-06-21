@@ -888,6 +888,7 @@ func (sess *Session) Purge(urls []string, file string) {
 		for _, url := range fails {
 			PrintError("%s", url)
 		}
+		PrintErrorAndExit("too many fails")
 	}
 	if err != nil {
 		PrintErrorAndExit("purge error: %v", err)
