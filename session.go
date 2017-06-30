@@ -180,7 +180,7 @@ func (sess *Session) Ls(upPath string, match *MatchConfig, maxItems int, isDesc 
 			break
 		}
 	}
-	if objs == 0 {
+	if objs == 0 && (match.Wildcard != "" || match.TimeType != TIME_NOT_SET) {
 		msg := fpath
 		if match.Wildcard != "" {
 			msg = fpath + "/" + match.Wildcard
