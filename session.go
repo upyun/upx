@@ -627,7 +627,7 @@ func (sess *Session) Tree(upPath string) {
 	return
 }
 
-func (sess *Session) syncOneObject(localPath, upPath string) (status int, err error) {
+func (sess *Session) syncOneObject(localPath, upPath string, strong bool) (status int, err error) {
 	upPath = sess.AbsPath(upPath)
 	localPath, err = filepath.Abs(localPath)
 	if err != nil {
@@ -644,12 +644,14 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 				setDBValue(localPath, upPath, diskV)
 			}
 		}()
-		dbV, err := getDBValue(localPath, upPath)
+		var dbV *dbValue
+		dbV, err = getDBValue(localPath, upPath)
 		if err != nil {
 			return FAIL, err
 		}
 
-		fInfo, err := os.Stat(localPath)
+		var fInfo os.FileInfo
+		fInfo, err = os.Stat(localPath)
 		if err != nil {
 			return FAIL, err
 		}
@@ -658,11 +660,16 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 		diskV.Md5, _ = md5File(localPath)
 		diskV.IsDir = "false"
 		if dbV != nil {
-			if dbV.ModifyTime == diskV.ModifyTime {
-				return EXISTS, nil
-			}
-			if dbV.Md5 != "" && dbV.Md5 == diskV.Md5 {
-				return EXISTS, nil
+			if (dbV.ModifyTime == diskV.ModifyTime) ||
+				(dbV.Md5 != "" && dbV.Md5 == diskV.Md5) {
+				if strong {
+					upInfo, _ := sess.updriver.GetInfo(upPath)
+					if upInfo != nil && dbV.Md5 != "" && dbV.Md5 == upInfo.MD5 {
+						return EXISTS, nil
+					}
+				} else {
+					return EXISTS, nil
+				}
 			}
 		}
 		err = sess.updriver.Put(&upyun.PutObjectConfig{
@@ -677,7 +684,7 @@ func (sess *Session) syncOneObject(localPath, upPath string) (status int, err er
 	return FAIL, err
 }
 
-func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
+func (sess *Session) Sync(localPath, upPath string, workers int, delete, strong bool) {
 	type task struct {
 		src, dst, typ string
 		isdir         bool
@@ -703,7 +710,7 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 			for task := range tasks {
 				switch task.typ {
 				case "sync":
-					stat, err := sess.syncOneObject(task.src, task.dst)
+					stat, err := sess.syncOneObject(task.src, task.dst, strong)
 					switch stat {
 					case SUCC:
 						PrintOnlyVerbose("sync %s to %s OK", task.src, task.dst)

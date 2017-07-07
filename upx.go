@@ -58,6 +58,8 @@ func main() {
 		NewAuthCommand(),
 		NewPostCommand(),
 		NewPurgeCommand(),
+		NewGetDBCommand(),
+		NewDeleteDBCommand(),
 	}
 
 	app.Run(os.Args)
