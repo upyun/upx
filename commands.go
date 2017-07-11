@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/fatih/color"
@@ -380,12 +381,13 @@ func NewSyncCommand() cli.Command {
 			if c.NArg() > 1 {
 				upPath = c.Args().Get(1)
 			}
-			session.Sync(localPath, upPath, c.Int("w"), c.Bool("delete"))
+			session.Sync(localPath, upPath, c.Int("w"), c.Bool("delete"), c.Bool("strong"))
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.BoolFlag{Name: "delete", Usage: "delete extraneous files from last sync"},
+			cli.BoolFlag{Name: "strong", Usage: "strong consistency"},
 		},
 	}
 }
@@ -422,6 +424,50 @@ func NewPurgeCommand() cli.Command {
 		},
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "list", Usage: "file which contains urls"},
+		},
+	}
+}
+
+func NewGetDBCommand() cli.Command {
+	return cli.Command{
+		Name:  "get-db",
+		Usage: "get db value",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			if c.NArg() != 2 {
+				PrintErrorAndExit("get-db local remote")
+			}
+			if err := initDB(); err != nil {
+				PrintErrorAndExit("get-db: init database: %v", err)
+			}
+			value, err := getDBValue(c.Args()[0], c.Args()[1])
+			if err != nil {
+				PrintErrorAndExit("get-db: %v", err)
+			}
+			b, _ := json.MarshalIndent(value, "", "  ")
+			Print("%s", string(b))
+			return nil
+		},
+	}
+}
+
+func NewDeleteDBCommand() cli.Command {
+	return cli.Command{
+		Name:  "del-db",
+		Usage: "delete db value",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			if c.NArg() != 2 {
+				PrintErrorAndExit("del-db local remote")
+			}
+			if err := initDB(); err != nil {
+				PrintErrorAndExit("del-db: init database: %v", err)
+			}
+			err := delDBValue(c.Args()[0], c.Args()[1])
+			if err != nil {
+				PrintErrorAndExit("del-db: %v", err)
+			}
+			return nil
 		},
 	}
 }
