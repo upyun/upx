@@ -18,10 +18,12 @@ import (
 )
 
 const (
-	EXISTS = iota
-	SUCC
-	FAIL
-	DELETE
+	SYNC_EXISTS = iota
+	SYNC_OK
+	SYNC_FAIL
+	SYNC_NOT_FOUND
+	DELETE_OK
+	DELETE_FAIL
 )
 
 type Session struct {
@@ -32,13 +34,65 @@ type Session struct {
 
 	updriver *upyun.UpYun
 	color    bool
-	stats    map[string]int
-	smu      sync.RWMutex
+
+	scores map[int]int
+	smu    sync.RWMutex
+
+	taskChan chan interface{}
+}
+
+type syncTask struct {
+	src, dest string
+	isdir     bool
+}
+
+type delTask struct {
+	src, dest string
+	isdir     bool
 }
 
 var (
 	session *Session
 )
+
+func (sess *Session) update(key int) {
+	sess.smu.Lock()
+	sess.scores[key]++
+	sess.smu.Unlock()
+}
+
+func (sess *Session) dump() string {
+	s := make(map[string]string)
+	titles := []string{"SYNC_EXISTS", "SYNC_OK", "SYNC_FAIL", "SYNC_NOT_FOUND", "DELETE_OK", "DELETE_FAIL"}
+	for i, title := range titles {
+		v := fmt.Sprint(sess.scores[i])
+		if len(v) > len(title) {
+			title = strings.Repeat(" ", len(v)-len(title)) + title
+		} else {
+			v = strings.Repeat(" ", len(title)-len(v)) + v
+		}
+		s[title] = v
+	}
+	header := "+"
+	for _, title := range titles {
+		header += strings.Repeat("=", len(s[title])+2) + "+"
+	}
+	header += "\n"
+	footer := strings.Replace(header, "=", "-", -1)
+
+	ret := "\n\n" + header
+	ret += "|"
+	for _, title := range titles {
+		ret += " " + title + " |"
+	}
+	ret += "\n" + footer
+
+	ret += "|"
+	for _, title := range titles {
+		ret += " " + s[title] + " |"
+	}
+	return ret + "\n" + footer
+}
 
 func (sess *Session) AbsPath(upPath string) (ret string) {
 	if strings.HasPrefix(upPath, "/") {
@@ -89,6 +143,7 @@ func (sess *Session) FormatUpInfo(upInfo *upyun.FileInfo) string {
 }
 
 func (sess *Session) Init() error {
+	sess.scores = make(map[int]int)
 	sess.updriver = upyun.NewUpYun(&upyun.UpYunConfig{
 		Bucket:    sess.Bucket,
 		Operator:  sess.Operator,
@@ -451,22 +506,15 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 }
 
 func (sess *Session) rmFile(fpath string, isAsync bool) {
-	if sess.stats == nil {
-		sess.stats = make(map[string]int)
-	}
 	err := sess.updriver.Delete(&upyun.DeleteObjectConfig{
 		Path:  fpath,
 		Async: isAsync,
 	})
 	if err == nil {
-		sess.smu.Lock()
-		sess.stats["ok"]++
-		sess.smu.Unlock()
+		sess.update(DELETE_OK)
 		PrintOnlyVerbose("DELETE %s OK", fpath)
 	} else {
-		sess.smu.Lock()
-		sess.stats["fail"]++
-		sess.smu.Unlock()
+		sess.update(DELETE_FAIL)
 		PrintError("DELETE %s FAIL %v", fpath, err)
 	}
 }
@@ -627,64 +675,142 @@ func (sess *Session) Tree(upPath string) {
 	return
 }
 
-func (sess *Session) syncOneObject(localPath, upPath string) (status int, err error) {
-	upPath = sess.AbsPath(upPath)
-	localPath, err = filepath.Abs(localPath)
+func (sess *Session) syncFile(localPath, upPath string, strongCheck bool) (status int, err error) {
+	curMeta, err := makeDBValue(localPath, false)
 	if err != nil {
-		return FAIL, err
+		if os.IsNotExist(err) {
+			return SYNC_NOT_FOUND, err
+		}
+		return SYNC_FAIL, err
+	}
+	if curMeta.IsDir == "true" {
+		return SYNC_FAIL, fmt.Errorf("file type changed")
 	}
 
-	diskV := &dbValue{}
-	isDir, _ := sess.IsLocalDir(localPath)
-	if isDir {
-		err = sess.updriver.Mkdir(upPath)
+	if strongCheck {
+		upInfo, _ := sess.updriver.GetInfo(upPath)
+		if upInfo != nil {
+			curMeta.Md5, _ = md5File(localPath)
+			if curMeta.Md5 == upInfo.MD5 {
+				setDBValue(localPath, upPath, curMeta)
+				return SYNC_EXISTS, nil
+			}
+		}
 	} else {
-		defer func() {
-			if status == EXISTS || status == SUCC {
-				setDBValue(localPath, upPath, diskV)
-			}
-		}()
-		dbV, err := getDBValue(localPath, upPath)
+		prevMeta, err := getDBValue(localPath, upPath)
 		if err != nil {
-			return FAIL, err
+			return SYNC_FAIL, err
 		}
 
-		fInfo, err := os.Stat(localPath)
-		if err != nil {
-			return FAIL, err
-		}
-
-		diskV.ModifyTime = fInfo.ModTime().UnixNano()
-		diskV.Md5, _ = md5File(localPath)
-		diskV.IsDir = "false"
-		if dbV != nil {
-			if dbV.ModifyTime == diskV.ModifyTime {
-				return EXISTS, nil
+		if prevMeta != nil {
+			if curMeta.ModifyTime == prevMeta.ModifyTime {
+				return SYNC_EXISTS, nil
 			}
-			if dbV.Md5 != "" && dbV.Md5 == diskV.Md5 {
-				return EXISTS, nil
+			curMeta.Md5, _ = md5File(localPath)
+			if curMeta.Md5 == prevMeta.Md5 {
+				setDBValue(localPath, upPath, curMeta)
+				return SYNC_EXISTS, nil
 			}
 		}
-		err = sess.updriver.Put(&upyun.PutObjectConfig{
-			Path:      upPath,
-			LocalPath: localPath,
-		})
 	}
 
-	if err == nil {
-		return SUCC, nil
+	err = sess.updriver.Put(&upyun.PutObjectConfig{Path: upPath, LocalPath: localPath})
+	if err != nil {
+		return SYNC_FAIL, err
 	}
-	return FAIL, err
+	setDBValue(localPath, upPath, curMeta)
+	return SYNC_OK, nil
 }
 
-func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
-	type task struct {
-		src, dst, typ string
-		isdir         bool
+func (sess *Session) syncObject(localPath, upPath string, isDir bool) {
+	if isDir {
+		status, err := sess.syncDirectory(localPath, upPath)
+		switch status {
+		case SYNC_OK:
+			PrintOnlyVerbose("sync %s to %s OK", localPath, upPath)
+		case SYNC_EXISTS:
+			PrintOnlyVerbose("sync %s to %s EXISTS", localPath, upPath)
+		case SYNC_FAIL, SYNC_NOT_FOUND:
+			PrintError("sync %s to %s FAIL %v", localPath, upPath, err)
+		}
+		sess.update(status)
+	} else {
+		sess.taskChan <- &syncTask{src: localPath, dest: upPath}
 	}
+}
+
+func (sess *Session) syncDirectory(localPath, upPath string) (int, error) {
+	delFunc := func(prevMeta *fileMeta) {
+		sess.taskChan <- &delTask{
+			src:   filepath.Join(localPath, prevMeta.Name),
+			dest:  path.Join(upPath, prevMeta.Name),
+			isdir: prevMeta.IsDir,
+		}
+	}
+	syncFunc := func(curMeta *fileMeta) {
+		src := filepath.Join(localPath, curMeta.Name)
+		dest := path.Join(upPath, curMeta.Name)
+		sess.syncObject(src, dest, curMeta.IsDir)
+	}
+
+	dbVal, err := getDBValue(localPath, upPath)
+	if err != nil {
+		return SYNC_FAIL, err
+	}
+
+	curMetas, err := makeFileMetas(localPath)
+	if err != nil {
+		// if not exist, should sync next time
+		if os.IsNotExist(err) {
+			return SYNC_NOT_FOUND, err
+		}
+		return SYNC_FAIL, err
+	}
+
+	status := SYNC_EXISTS
+	var prevMetas []*fileMeta
+	if dbVal != nil && dbVal.IsDir == "true" {
+		prevMetas = dbVal.Items
+	} else {
+		if err = sess.updriver.Mkdir(upPath); err != nil {
+			return SYNC_FAIL, err
+		}
+		status = SYNC_OK
+	}
+
+	cur, curSize, prev, prevSize := 0, len(curMetas), 0, len(prevMetas)
+	for cur < curSize && prev < prevSize {
+		curMeta, prevMeta := curMetas[cur], prevMetas[prev]
+		if curMeta.Name == prevMeta.Name {
+			if curMeta.IsDir != prevMeta.IsDir {
+				delFunc(prevMeta)
+			}
+			syncFunc(curMeta)
+			prev++
+			cur++
+		} else if curMeta.Name > prevMeta.Name {
+			delFunc(prevMeta)
+			prev++
+		} else {
+			syncFunc(curMeta)
+			cur++
+		}
+	}
+	for ; cur < curSize; cur++ {
+		syncFunc(curMetas[cur])
+	}
+	for ; prev < prevSize; prev++ {
+		delFunc(prevMetas[prev])
+	}
+
+	setDBValue(localPath, upPath, &dbValue{IsDir: "true", Items: curMetas})
+	return status, nil
+}
+
+func (sess *Session) Sync(localPath, upPath string, workers int, delete, strong bool) {
 	var wg sync.WaitGroup
-	tasks := make(chan *task, workers*2)
-	stats := make(chan int, workers*2)
+	sess.taskChan = make(chan interface{}, workers*2)
+	stopChan := make(chan bool, 1)
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
@@ -695,34 +821,35 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 		PrintErrorAndExit("sync: init database: %v", err)
 	}
 
-	var dlock sync.Mutex
+	var delLock sync.Mutex
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for task := range tasks {
-				switch task.typ {
-				case "sync":
-					stat, err := sess.syncOneObject(task.src, task.dst)
+			for task := range sess.taskChan {
+				switch v := task.(type) {
+				case *syncTask:
+					stat, err := sess.syncFile(v.src, v.dest, strong)
 					switch stat {
-					case SUCC:
-						PrintOnlyVerbose("sync %s to %s OK", task.src, task.dst)
-					case EXISTS:
-						PrintOnlyVerbose("sync %s to %s EXISTS", task.src, task.dst)
-					case FAIL:
-						PrintError("sync %s to %s FAIL %v", task.src, task.dst, err)
+					case SYNC_OK:
+						PrintOnlyVerbose("sync %s to %s OK", v.src, v.dest)
+					case SYNC_EXISTS:
+						PrintOnlyVerbose("sync %s to %s EXISTS", v.src, v.dest)
+					case SYNC_FAIL, SYNC_NOT_FOUND:
+						PrintError("sync %s to %s FAIL %v", v.src, v.dest, err)
 					}
-					stats <- stat
-				case "delete":
-					dlock.Lock()
-					if task.isdir {
-						sess.rmDir(task.dst, false)
-					} else {
-						sess.rmFile(task.dst, false)
+					sess.update(stat)
+				case *delTask:
+					if delete {
+						delDBValue(v.src, v.dest)
+						delLock.Lock()
+						if v.isdir {
+							sess.rmDir(v.dest, false)
+						} else {
+							sess.rmFile(v.dest, false)
+						}
+						delLock.Unlock()
 					}
-					dlock.Unlock()
-					delDBValue(task.src, task.dst)
-					stats <- DELETE
 				}
 			}
 		}()
@@ -730,97 +857,26 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete bool) {
 
 	go func() {
 		wg.Wait()
-		close(stats)
+		close(stopChan)
 	}()
 
 	go func() {
-		walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
-			if err != nil {
-				PrintError("walk dir error %s: %v", fpath, err)
-				stats <- FAIL
-				return
-			}
-
-			uppath, err := filepath.Rel(localPath, fpath)
-			if err != nil {
-				PrintError("get relative path error %s: %v", fpath, err)
-				stats <- FAIL
-				return
-			}
-			uppath = path.Join(upPath, filepath.ToSlash(uppath))
-
-			if fInfo.IsDir() {
-				// check node info
-				dbV, err := getDBValue(fpath, uppath)
-				if err != nil {
-					PrintError("get db error %s %v", fpath, err)
-					stats <- FAIL
-					return
-				}
-
-				// get meta info
-				fMetas, err := makeFileMetas(fpath)
-				if err != nil {
-					PrintError("make file metas error %s: %v", fpath, err)
-					stats <- FAIL
-					return
-				}
-				// update info
-				curDBV, _ := makeDBValue(fpath)
-				curDBV.Items = fMetas
-				setDBValue(fpath, uppath, curDBV)
-
-				// no value before
-				if dbV == nil {
-					tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
-				} else {
-					if delete {
-						for _, meta := range diffFileMetas(dbV.Items, fMetas) {
-							tasks <- &task{
-								src:   filepath.Join(fpath, meta.Name),
-								dst:   path.Join(uppath, meta.Name),
-								typ:   "delete",
-								isdir: meta.IsDir,
-							}
-						}
-					}
-
-					if dbV.IsDir == "false" {
-						tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
-					} else {
-						PrintOnlyVerbose("sync %s to %s EXISTS", fpath, uppath)
-						stats <- EXISTS
-					}
-				}
-			} else {
-				tasks <- &task{src: fpath, dst: uppath, typ: "sync"}
-			}
-		})
-		close(tasks)
+		isDir, _ := sess.IsLocalDir(localPath)
+		sess.syncObject(localPath, upPath, isDir)
+		close(sess.taskChan)
 	}()
 
-	counts := make([]int, 4)
-	for {
-		select {
-		case <-sigChan:
-			PrintErrorAndExit("%d succs, %d fails, %d ignores, %d/%d dels.\n",
-				counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
-		case t, more := <-stats:
-			if !more {
-				if counts[FAIL] == 0 && sess.stats["fail"] == 0 {
-					Print("%d succs, %d fails, %d ignores, %d/%d dels.\n",
-						counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
-				} else {
-					PrintErrorAndExit("%d succs, %d fails, %d ignores, %d/%d dels.\n",
-						counts[SUCC], counts[FAIL], counts[EXISTS], sess.stats["ok"], sess.stats["fail"])
-				}
-				return
-			}
-			counts[t]++
+	select {
+	case <-sigChan:
+		PrintErrorAndExit("%s", sess.dump())
+	case <-stopChan:
+		if sess.scores[SYNC_FAIL] > 0 || sess.scores[DELETE_FAIL] > 0 {
+			PrintErrorAndExit("%s", sess.dump())
+		} else {
+			Print("%s", sess.dump())
 		}
 	}
 }
-
 func (sess *Session) PostTask(app, notify, taskFile string) {
 	fd, err := os.Open(taskFile)
 	if err != nil {
