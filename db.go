@@ -43,7 +43,7 @@ func makeDBKey(src, dst string) ([]byte, error) {
 	})
 }
 
-func makeDBValue(filename string) (*dbValue, error) {
+func makeDBValue(filename string, md5 bool) (*dbValue, error) {
 	finfo, err := os.Stat(filename)
 	if err != nil {
 		return nil, err
@@ -54,8 +54,10 @@ func makeDBValue(filename string) (*dbValue, error) {
 	}
 
 	if !finfo.IsDir() {
-		md5Str, _ := md5File(filename)
-		dbV.Md5 = md5Str
+		if md5 {
+			md5Str, _ := md5File(filename)
+			dbV.Md5 = md5Str
+		}
 		dbV.IsDir = "false"
 	} else {
 		dbV.IsDir = "true"
@@ -91,7 +93,7 @@ func setDBValue(src, dst string, v *dbValue) error {
 	}
 
 	if v == nil {
-		v, err = makeDBValue(src)
+		v, err = makeDBValue(src, true)
 		if err != nil {
 			return err
 		}
@@ -112,7 +114,6 @@ func delDBValue(src, dst string) error {
 	}
 
 	return db.Delete(key, nil)
-
 }
 
 func makeFileMetas(dirname string) ([]*fileMeta, error) {
