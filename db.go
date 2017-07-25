@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"io/ioutil"
 	"os"
