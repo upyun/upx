@@ -51,6 +51,12 @@
 			"revisionTime": "2015-12-06T19:48:10Z"
 		},
 		{
+			"checksumSHA1": "gEjGS03N1eysvpQ+FCHTxPcbxXc=",
+			"path": "github.com/kardianos/osext",
+			"revision": "ae77be60afb1dcacde03767a8c37337fad28ac14",
+			"revisionTime": "2017-05-10T13:15:34Z"
+		},
+		{
 			"checksumSHA1": "I4njd26dG5hxFT2nawuByM4pxzY=",
 			"path": "github.com/mattn/go-colorable",
 			"revision": "d228849504861217f796da67fae4f6e347643f15",
@@ -145,7 +151,13 @@
 			"path": "golang.org/x/crypto/ssh/terminal",
 			"revision": "a8a4eedf8c97852389ea5f2c252660d3616af041",
 			"revisionTime": "2016-08-16T20:51:58Z"
+		},
+		{
+			"checksumSHA1": "iKgeC4jGetV1a+cyKz9EI8Ldlyo=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "571f7bbbe08da2a8955aed9d4db316e78630e9a3",
+			"revisionTime": "2017-12-16T14:55:03Z"
 		}
 	],
-	"rootPath": "upx"
+	"rootPath": "upyun.com/upx"
 }

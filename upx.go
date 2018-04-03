@@ -59,6 +59,7 @@ func main() {
 		NewPostCommand(),
 		NewPurgeCommand(),
 		NewGetDBCommand(),
+		NewUpgradeCommand(),
 	}
 
 	app.Run(os.Args)
