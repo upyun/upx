@@ -450,3 +450,14 @@ func NewGetDBCommand() cli.Command {
 		},
 	}
 }
+
+func NewUpgradeCommand() cli.Command {
+	return cli.Command{
+		Name:  "upgrade",
+		Usage: "upgrade upx to latest version",
+		Action: func(c *cli.Context) error {
+			Upgrade()
+			return nil
+		},
+	}
+}
