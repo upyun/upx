@@ -146,3 +146,11 @@ func walk(root string, f func(string, os.FileInfo, error)) {
 		f(root, fi, err)
 	}
 }
+
+func parseTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		PrintErrorAndExit("invalid time: %s %s %v", s, time.RFC3339, err)
+	}
+	return t
+}

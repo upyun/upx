@@ -54,15 +54,26 @@ type GetObjectsConfig struct {
 	try     int
 }
 
+// RangeObjectsConfig provides a configuration to RangeList method.
+type RangeObjectsConfig struct {
+	StartTimestamp int64
+	EndTimestamp   int64
+	ObjectsChan    chan *FileInfo
+	QuitChan       chan bool
+	Headers        map[string]string
+	MaxListTries   int
+}
+
 // PutObjectConfig provides a configuration to Put method.
 type PutObjectConfig struct {
-	Path              string
-	LocalPath         string
-	Reader            io.Reader
-	Headers           map[string]string
-	UseMD5            bool
-	UseResumeUpload   bool
-	AppendContent     bool
+	Path            string
+	LocalPath       string
+	Reader          io.Reader
+	Headers         map[string]string
+	UseMD5          bool
+	UseResumeUpload bool
+	// Append Api Deprecated
+	// AppendContent     bool
 	ResumePartSize    int64
 	MaxResumePutTries int
 }
@@ -146,12 +157,14 @@ func (up *UpYun) Get(config *GetObjectConfig) (fInfo *FileInfo, err error) {
 }
 
 func (up *UpYun) put(config *PutObjectConfig) error {
+	/* Append Api Deprecated
 	if config.AppendContent {
 		if config.Headers == nil {
 			config.Headers = make(map[string]string)
 		}
 		config.Headers["X-Upyun-Append"] = "true"
 	}
+	*/
 	_, err := up.doRESTRequest(&restReqConfig{
 		method:    "PUT",
 		uri:       config.Path,
@@ -287,6 +300,10 @@ func (up *UpYun) Delete(config *DeleteObjectConfig) error {
 		closeBody: true,
 	})
 	if err != nil {
+		if e, ok := err.(Error); ok {
+			e.error = fmt.Errorf("delete %s: %v", config.Path, err)
+			return e
+		}
 		return fmt.Errorf("delete %s: %v", config.Path, err)
 	}
 	return nil
@@ -299,6 +316,10 @@ func (up *UpYun) GetInfo(path string) (*FileInfo, error) {
 		closeBody: true,
 	})
 	if err != nil {
+		if e, ok := err.(Error); ok {
+			e.error = fmt.Errorf("getinfo %s: %v", path, err)
+			return nil, e
+		}
 		return nil, fmt.Errorf("getinfo %s: %v", path, err)
 	}
 	fInfo := parseHeaderToFileInfo(resp.Header, true)
@@ -373,6 +394,10 @@ func (up *UpYun) List(config *GetObjectsConfig) error {
 				if err = up.List(rConfig); err != nil {
 					return err
 				}
+				// empty folder
+				if config.objNum == rConfig.objNum {
+					fInfo.IsEmptyDir = true
+				}
 				config.try, config.objNum = rConfig.try, rConfig.objNum
 			}
 			if config.rootDir != "" {
@@ -391,6 +416,65 @@ func (up *UpYun) List(config *GetObjectsConfig) error {
 				return nil
 			}
 
+		}
+
+		config.Headers["X-List-Iter"] = resp.Header.Get("X-Upyun-List-Iter")
+		if config.Headers["X-List-Iter"] == "g2gCZAAEbmV4dGQAA2VvZg" {
+			return nil
+		}
+	}
+}
+
+func (up *UpYun) RangeList(config *RangeObjectsConfig) error {
+	if config.ObjectsChan == nil {
+		return fmt.Errorf("ObjectsChan == nil")
+	}
+	if config.Headers == nil {
+		config.Headers = make(map[string]string)
+	}
+	if config.QuitChan == nil {
+		config.QuitChan = make(chan bool)
+	}
+	if _, exist := config.Headers["X-List-Limit"]; !exist {
+		config.Headers["X-List-Limit"] = "50"
+	}
+	if config.StartTimestamp != 0 {
+		config.Headers["X-List-Start"] = fmt.Sprint(config.StartTimestamp)
+	}
+	if config.EndTimestamp != 0 {
+		config.Headers["X-List-End"] = fmt.Sprint(config.EndTimestamp)
+	}
+	defer close(config.ObjectsChan)
+
+	try := 0
+	for {
+		resp, err := up.doRESTRequest(&restReqConfig{
+			method:  "GET",
+			uri:     "/?files",
+			headers: config.Headers,
+		})
+		if err != nil {
+			if _, ok := err.(net.Error); ok {
+				try++
+				if config.MaxListTries == 0 || try < config.MaxListTries {
+					continue
+				}
+			}
+			return err
+		}
+
+		b, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("ioutil ReadAll: %v", err)
+		}
+
+		for _, fInfo := range parseRangeListToFileInfos(b) {
+			select {
+			case config.ObjectsChan <- fInfo:
+			case <-config.QuitChan:
+				return nil
+			}
 		}
 
 		config.Headers["X-List-Iter"] = resp.Header.Get("X-Upyun-List-Iter")
@@ -484,7 +568,10 @@ func (up *UpYun) doRESTRequest(config *restReqConfig) (*http.Response, error) {
 	if resp.StatusCode/100 != 2 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
-		return resp, fmt.Errorf("%s %d %s", config.method, resp.StatusCode, string(body))
+		return resp, Error{
+			fmt.Errorf("%s %d %s", config.method, resp.StatusCode, string(body)),
+			resp.StatusCode,
+		}
 	}
 
 	if config.closeBody {

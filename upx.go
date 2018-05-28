@@ -60,6 +60,7 @@ func main() {
 		NewPurgeCommand(),
 		NewGetDBCommand(),
 		NewUpgradeCommand(),
+		NewRgetCommand(),
 	}
 
 	app.Run(os.Args)

@@ -159,24 +159,3 @@ func md5File(f io.ReadSeeker) (string, error) {
 	}
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
-
-func parseBodyToFileInfos(b []byte) (fInfos []*FileInfo) {
-	line := strings.Split(string(b), "\n")
-	for _, l := range line {
-		if len(l) == 0 {
-			continue
-		}
-		items := strings.Split(l, "\t")
-		if len(items) != 4 {
-			continue
-		}
-
-		fInfos = append(fInfos, &FileInfo{
-			Name:  items[0],
-			IsDir: items[1] == "F",
-			Size:  int64(parseStrToInt(items[2])),
-			Time:  time.Unix(parseStrToInt(items[3]), 0),
-		})
-	}
-	return
-}

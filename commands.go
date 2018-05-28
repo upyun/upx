@@ -461,3 +461,35 @@ func NewUpgradeCommand() cli.Command {
 		},
 	}
 }
+
+func NewRgetCommand() cli.Command {
+	return cli.Command{
+		Name:  "rget",
+		Usage: "Get directory or file",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			localPath := c.Args().First()
+			start, end := "", ""
+			var startts, endts int64
+			if c.NArg() > 1 {
+				start = c.Args().Get(1)
+				if c.NArg() > 2 {
+					end = c.Args().Get(2)
+				}
+			}
+			if start != "" {
+				startts = parseTime(start).Unix()
+			}
+			if end != "" {
+				endts = parseTime(end).Unix()
+			}
+
+			session.RangeGet(localPath, startts, endts, c.Int("w"))
+
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+		},
+	}
+}
