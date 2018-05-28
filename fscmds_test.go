@@ -21,9 +21,12 @@ func TestMkdirAndCdAndPwd(t *testing.T) {
 	defer TearDown()
 
 	base := path.Join(ROOT, "mkdir")
+	b, err := Upx("mkdir", base)
+	Nil(t, err)
+	Equal(t, string(b), "")
 
 	case1 := path.Join(base, "case1")
-	b, err := Upx("mkdir", case1)
+	b, err = Upx("mkdir", case1)
 	Nil(t, err)
 	Equal(t, string(b), "")
 
