@@ -1,16 +1,66 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/upyun/go-sdk/upyun"
 )
 
 func (sess *Session) GetFromFile(filename, localPath string, workers int) {
+	fileChan := make(chan string, 2*workers)
+	localPath, _ = filepath.Abs(localPath)
+	var wg sync.WaitGroup
+
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for filename := range fileChan {
+				src := path.Join("/", filename)
+				dst := filepath.Join(localPath, filename)
+				if fInfo, _ := os.Stat(dst); fInfo != nil {
+					Print("get %s EXIST", src)
+					continue
+				}
+				err := os.MkdirAll(filepath.Dir(dst), 0755)
+				if err != nil {
+					PrintError("get %s: %v", src, err)
+					continue
+				}
+
+				_, err = sess.updriver.Get(&upyun.GetObjectConfig{
+					Path:      src,
+					LocalPath: dst,
+				})
+				if err != nil {
+					PrintError("get %s: %v", src, err)
+				} else {
+					Print("get %s %s OK", src, dst)
+				}
+			}
+		}()
+	}
+
+	fd, err := os.Open(filename)
+	if err != nil {
+		PrintErrorAndExit("open %s: %v", filename, err)
+	}
+	defer fd.Close()
+
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fileChan <- strings.Split(line, "\t")[0]
+	}
+	close(fileChan)
+
+	wg.Wait()
 }
 
 func (sess *Session) RangeGet(localPath string, start, end int64, workers int) {

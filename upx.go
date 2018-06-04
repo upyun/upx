@@ -61,6 +61,7 @@ func main() {
 		NewGetDBCommand(),
 		NewUpgradeCommand(),
 		NewRgetCommand(),
+		NewFgetCommand(),
 	}
 
 	app.Run(os.Args)

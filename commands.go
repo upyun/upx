@@ -493,3 +493,25 @@ func NewRgetCommand() cli.Command {
 		},
 	}
 }
+
+func NewFgetCommand() cli.Command {
+	return cli.Command{
+		Name:  "fget",
+		Usage: "Get files from source list",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			if c.NArg() != 2 {
+				PrintErrorAndExit("fget source-file localpath")
+			}
+			filename := c.Args()[0]
+			localPath := c.Args()[1]
+
+			session.GetFromFile(filename, localPath, c.Int("w"))
+
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+		},
+	}
+}
