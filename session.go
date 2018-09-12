@@ -531,7 +531,7 @@ func (sess *Session) rmDir(fpath string, isAsync bool) {
 			ObjectsChan: fInfoChan,
 		})
 		if err != nil {
-			PrintErrorAndExit("ls %s: %v", fpath, err)
+			PrintError("ls %s: %v", fpath, err)
 		}
 	}()
 
