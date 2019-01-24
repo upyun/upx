@@ -3,3 +3,6 @@ upx
 *.swp
 *.swn
 upx-*
+/.idea
+/.vscode
+.upx.cfg

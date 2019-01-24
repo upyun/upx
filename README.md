@@ -46,8 +46,10 @@ $ go get github.com/polym/upx
 ### Docker
 
 ```bash
-docker build -t upx .
-docker run --rm upx upx -v
+$ docker build -t upx .
+$ docker run --rm upx upx -v
+$ docker run --rm --volume YOUR_PATH:/go/src/upx upx upx login {Bucket} {Operator} {Password}
+$ docker run --rm --volume YOUR_PATH:/go/src/upx upx upx info
 ```
 
 ## 使用

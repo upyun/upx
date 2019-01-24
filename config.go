@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strings"
 )
 
 const (
@@ -156,10 +157,15 @@ func saveConfigToFile() {
 }
 
 func getConfigName() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), ".upx.cfg")
+	return filepath.Join(getCurrentDirectory(), ".upx.cfg")
+}
+
+func getCurrentDirectory() string {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatal(err)
 	}
-	return filepath.Join(os.Getenv("HOME"), ".upx.cfg")
+	return strings.Replace(dir, "\\", "/", -1)
 }
 
 func hashEncode(s string) string {
