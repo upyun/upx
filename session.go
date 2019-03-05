@@ -177,8 +177,11 @@ func (sess *Session) Pwd() {
 func (sess *Session) Mkdir(upPaths ...string) {
 	for _, upPath := range upPaths {
 		fpath := sess.AbsPath(upPath)
-		if err := sess.updriver.Mkdir(fpath); err != nil {
-			PrintErrorAndExit("mkdir %s: %v", fpath, err)
+		for fpath != "/" {
+			if err := sess.updriver.Mkdir(fpath); err != nil {
+				PrintErrorAndExit("mkdir %s: %v", fpath, err)
+			}
+			fpath = path.Dir(fpath)
 		}
 	}
 }

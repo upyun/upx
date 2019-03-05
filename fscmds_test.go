@@ -88,12 +88,12 @@ func TestLs(t *testing.T) {
 	}()
 
 	defer func() {
-		//		for _, file := range files {
-		//			Upx("rm", file)
-		//		}
-		//		for _, dir := range dirs {
-		//			Upx("rm", dir)
-		//		}
+		for _, file := range files {
+			Upx("rm", file)
+		}
+		for _, dir := range dirs {
+			Upx("rm", dir)
+		}
 		TearDown()
 	}()
 
