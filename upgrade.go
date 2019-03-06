@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	VERSION_URL         = "https://raw.githubusercontent.com/polym/upx/master/VERSION"
+	VERSION_URL         = "https://raw.githubusercontent.com/upyun/upx/master/VERSION"
 	DOWNLOAD_URL_PREFIX = "http://collection.b0.upaiyun.com/softwares/upx/upx-"
 )
 

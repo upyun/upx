@@ -1,7 +1,7 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
-[![Release](https://img.shields.io/badge/release-v0.2.3-orange.svg)](https://github.com/polym/upx/releases/tag/v0.2.3)
-[![Build Status](https://travis-ci.org/polym/upx.svg?branch=master)](https://travis-ci.org/polym/upx)
+[![Release](https://img.shields.io/badge/release-v0.2.3-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.2.3)
+[![Build Status](https://travis-ci.org/upyun/upx.svg?branch=master)](https://travis-ci.org/upyun/upx)
 
 ## 基本功能
 
@@ -34,13 +34,13 @@
 > 需要安装 [Golang 编译环境](https://golang.org/dl/)
 
 ```
-$ git clone https://github.com/polym/upx.git
+$ git clone https://github.com/upyun/upx.git
 $ cd upx && make
 ```
 or
 
 ```
-$ go get github.com/polym/upx
+$ go get github.com/upyun/upx
 ```
 
 ### Docker
