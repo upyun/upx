@@ -10,10 +10,30 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	escape []uint32 = []uint32{
+		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+
+		/*             ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
+		0xfc001fff, /* 1111 1100 0000 0000  0001 1111 1111 1111 */
+
+		/*             _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
+		0x78000001, /* 0111 1000 0000 0000  0000 0000 0000 0001 */
+
+		/*              ~}| {zyx wvut srqp  onml kjih gfed cba` */
+		0xb8000001, /* 1011 1000 0000 0000  0000 0000 0000 0001 */
+
+		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+	}
+	hex = "0123456789ABCDEF"
 )
 
 func makeRFC1123Date(d time.Time) string {
@@ -63,13 +83,32 @@ func unhex(c byte) byte {
 	return 0
 }
 
-func escapeUri(uri string) (string, error) {
-	uri = path.Join("/", uri)
-	u, err := url.ParseRequestURI(uri)
-	if err != nil {
-		return "", err
+func escapeUri(s string) string {
+	size := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escape[c>>5]&(1<<(c&0x1f)) > 0 {
+			size += 3
+		} else {
+			size++
+		}
 	}
-	return u.String(), nil
+
+	ret := make([]byte, size)
+	j := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escape[c>>5]&(1<<(c&0x1f)) > 0 {
+			ret[j] = '%'
+			ret[j+1] = hex[c>>4]
+			ret[j+2] = hex[c&0xf]
+			j = j + 3
+		} else {
+			ret[j] = c
+			j = j + 1
+		}
+	}
+	return string(ret)
 }
 
 func unescapeUri(s string) string {

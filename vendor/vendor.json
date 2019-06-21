@@ -141,10 +141,10 @@
 			"revisionTime": "2016-06-29T10:12:33Z"
 		},
 		{
-			"checksumSHA1": "/XV5uouVqAHGDuzclFaBKSc0rlg=",
+			"checksumSHA1": "tDkf0531HD7ubg8z75HnHuyppB4=",
 			"path": "github.com/upyun/go-sdk/upyun",
-			"revision": "911628e0e066ddc8430cbfa864bb93460211e197",
-			"revisionTime": "2017-07-07T02:09:42Z"
+			"revision": "4cfba81483e71c7c1777c708419a07d2b24bb86c",
+			"revisionTime": "2019-05-21T00:55:58Z"
 		},
 		{
 			"checksumSHA1": "y3a1tOZVwKCqG2yJZvAYycnelyM=",
@@ -159,5 +159,5 @@
 			"revisionTime": "2017-12-16T14:55:03Z"
 		}
 	],
-	"rootPath": "upyun.com/upx"
+	"rootPath": "github.com/upyun/upx"
 }
