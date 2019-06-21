@@ -3,10 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/gosuri/uiprogress"
-	"github.com/jehiah/go-strftime"
-	"github.com/upyun/go-sdk/upyun"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -15,6 +11,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/gosuri/uiprogress"
+	"github.com/jehiah/go-strftime"
+	"github.com/upyun/go-sdk/upyun"
 )
 
 const (
@@ -508,10 +509,11 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 	}
 }
 
-func (sess *Session) rmFile(fpath string, isAsync bool) {
+func (sess *Session) rm(fpath string, isAsync bool, isFolder bool) {
 	err := sess.updriver.Delete(&upyun.DeleteObjectConfig{
-		Path:  fpath,
-		Async: isAsync,
+		Path:   fpath,
+		Async:  isAsync,
+		Folder: isFolder,
 	})
 	if err == nil {
 		sess.update(DELETE_OK)
@@ -521,9 +523,12 @@ func (sess *Session) rmFile(fpath string, isAsync bool) {
 		PrintError("DELETE %s FAIL %v", fpath, err)
 	}
 }
+func (sess *Session) rmFile(fpath string, isAsync bool) {
+	sess.rm(fpath, isAsync, false)
+}
 
 func (sess *Session) rmEmptyDir(fpath string, isAsync bool) {
-	sess.rmFile(fpath, isAsync)
+	sess.rm(fpath, isAsync, true)
 }
 
 func (sess *Session) rmDir(fpath string, isAsync bool) {
@@ -534,7 +539,11 @@ func (sess *Session) rmDir(fpath string, isAsync bool) {
 			ObjectsChan: fInfoChan,
 		})
 		if err != nil {
-			PrintErrorAndExit("ls %s: %v", fpath, err)
+			if upyun.IsNotExist(err) {
+				return
+			} else {
+				PrintErrorAndExit("ls %s: %v", fpath, err)
+			}
 		}
 	}()
 
@@ -553,7 +562,11 @@ func (sess *Session) Rm(upPath string, match *MatchConfig, isAsync bool) {
 	fpath := sess.AbsPath(upPath)
 	isDir, exist := sess.IsUpYunDir(fpath)
 	if !exist {
-		PrintErrorAndExit("rm: cannot remove %s: No such file or directory", fpath)
+		if match.ItemType == DIR {
+			isDir = true
+		} else {
+			PrintErrorAndExit("rm: cannot remove %s: No such file or directory", fpath)
+		}
 	}
 
 	if isDir && match != nil && match.Wildcard == "" {

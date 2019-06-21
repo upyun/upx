@@ -20,6 +20,7 @@ const (
 type restReqConfig struct {
 	method    string
 	uri       string
+	query     string
 	headers   map[string]string
 	closeBody bool
 	httpBody  io.Reader
@@ -56,20 +57,22 @@ type GetObjectsConfig struct {
 
 // PutObjectConfig provides a configuration to Put method.
 type PutObjectConfig struct {
-	Path              string
-	LocalPath         string
-	Reader            io.Reader
-	Headers           map[string]string
-	UseMD5            bool
-	UseResumeUpload   bool
-	AppendContent     bool
+	Path            string
+	LocalPath       string
+	Reader          io.Reader
+	Headers         map[string]string
+	UseMD5          bool
+	UseResumeUpload bool
+	// Append Api Deprecated
+	// AppendContent     bool
 	ResumePartSize    int64
 	MaxResumePutTries int
 }
 
 type DeleteObjectConfig struct {
-	Path  string
-	Async bool
+	Path   string
+	Async  bool
+	Folder bool //optional
 }
 
 type ModifyMetadataConfig struct {
@@ -82,7 +85,8 @@ func (up *UpYun) Usage() (n int64, err error) {
 	var resp *http.Response
 	resp, err = up.doRESTRequest(&restReqConfig{
 		method: "GET",
-		uri:    "/?usage",
+		uri:    "/",
+		query:  "usage",
 	})
 
 	if err == nil {
@@ -146,12 +150,14 @@ func (up *UpYun) Get(config *GetObjectConfig) (fInfo *FileInfo, err error) {
 }
 
 func (up *UpYun) put(config *PutObjectConfig) error {
+	/* Append Api Deprecated
 	if config.AppendContent {
 		if config.Headers == nil {
 			config.Headers = make(map[string]string)
 		}
 		config.Headers["X-Upyun-Append"] = "true"
 	}
+	*/
 	_, err := up.doRESTRequest(&restReqConfig{
 		method:    "PUT",
 		uri:       config.Path,
@@ -280,6 +286,9 @@ func (up *UpYun) Delete(config *DeleteObjectConfig) error {
 	if config.Async == true {
 		headers["x-upyun-async"] = "true"
 	}
+	if config.Folder {
+		headers["x-upyun-folder"] = "true"
+	}
 	_, err := up.doRESTRequest(&restReqConfig{
 		method:    "DELETE",
 		uri:       config.Path,
@@ -287,6 +296,10 @@ func (up *UpYun) Delete(config *DeleteObjectConfig) error {
 		closeBody: true,
 	})
 	if err != nil {
+		if e, ok := err.(Error); ok {
+			e.error = fmt.Errorf("delete %s: %v", config.Path, err)
+			return e
+		}
 		return fmt.Errorf("delete %s: %v", config.Path, err)
 	}
 	return nil
@@ -299,6 +312,10 @@ func (up *UpYun) GetInfo(path string) (*FileInfo, error) {
 		closeBody: true,
 	})
 	if err != nil {
+		if e, ok := err.(Error); ok {
+			e.error = fmt.Errorf("getinfo %s: %v", path, err)
+			return nil, e
+		}
 		return nil, fmt.Errorf("getinfo %s: %v", path, err)
 	}
 	fInfo := parseHeaderToFileInfo(resp.Header, true)
@@ -373,6 +390,10 @@ func (up *UpYun) List(config *GetObjectsConfig) error {
 				if err = up.List(rConfig); err != nil {
 					return err
 				}
+				// empty folder
+				if config.objNum == rConfig.objNum {
+					fInfo.IsEmptyDir = true
+				}
 				config.try, config.objNum = rConfig.try, rConfig.objNum
 			}
 			if config.rootDir != "" {
@@ -406,7 +427,8 @@ func (up *UpYun) ModifyMetadata(config *ModifyMetadataConfig) error {
 	}
 	_, err := up.doRESTRequest(&restReqConfig{
 		method:    "PATCH",
-		uri:       config.Path + "?metadata=" + config.Operation,
+		uri:       config.Path,
+		query:     "metadata=" + config.Operation,
 		headers:   config.Headers,
 		closeBody: true,
 	})
@@ -414,13 +436,12 @@ func (up *UpYun) ModifyMetadata(config *ModifyMetadataConfig) error {
 }
 
 func (up *UpYun) doRESTRequest(config *restReqConfig) (*http.Response, error) {
-	escUri, err := escapeUri(config.uri)
-	if err != nil {
-		return nil, err
-	}
-	escUri = path.Join("/", up.Bucket, escUri)
+	escUri := path.Join("/", up.Bucket, escapeUri(config.uri))
 	if strings.HasSuffix(config.uri, "/") {
 		escUri += "/"
+	}
+	if config.query != "" {
+		escUri += "?" + config.query
 	}
 
 	headers := map[string]string{}
@@ -484,7 +505,10 @@ func (up *UpYun) doRESTRequest(config *restReqConfig) (*http.Response, error) {
 	if resp.StatusCode/100 != 2 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
-		return resp, fmt.Errorf("%s %d %s", config.method, resp.StatusCode, string(body))
+		return resp, Error{
+			fmt.Errorf("%s %d %s", config.method, resp.StatusCode, string(body)),
+			resp.StatusCode,
+		}
 	}
 
 	if config.closeBody {

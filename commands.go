@@ -3,13 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/codegangsta/cli"
-	"github.com/fatih/color"
-	"github.com/howeyc/gopass"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/codegangsta/cli"
+	"github.com/fatih/color"
+	"github.com/howeyc/gopass"
 )
 
 const (
