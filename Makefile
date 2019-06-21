@@ -1,5 +1,5 @@
 ifndef VER
-	VER= 'latest'
+	VER= $(shell grep -o -E '(v[0-9]+\.[0-9]+\.[0-9]+)' ./upx.go)
 endif
 
 APP= upx
@@ -24,23 +24,24 @@ test:
 
 release:
 	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
+	rm -rf release
 	cd $(PROJ_DIR)/$(APP) && for OS in linux windows darwin; do \
 		for ARCH in amd64 386; do \
-			GOOS=$$OS GOARCH=$$ARCH go build -o upx-$$OS-$$ARCH-$(VER) .; \
-			GOOS=$$OS GOARCH=$$ARCH go test -c -o upx-$$OS-$$ARCH-$(VER).test .; \
+			GOOS=$$OS GOARCH=$$ARCH go build -o release/upx-$$OS-$$ARCH-$(VER) .; \
 		done \
 	done
 	- unlink $(PROJ_DIR)/$(APP)
+	tar -zcf release/upx-$(VER).tar.gz release/*
 
 upload: release
 	./upx pwd
 	for OS in linux darwin; do \
 		for ARCH in amd64 386; do \
-			./upx put upx-$$OS-$$ARCH-$(VER) /softwares/upx/; \
+			./upx put release/upx-$$OS-$$ARCH-$(VER) /softwares/upx/; \
 		done \
 	done
 	for ARCH in amd64 386; do \
-		./upx put upx-windows-$$ARCH-$(VER) /softwares/upx/upx-windows-$$ARCH-$(VER).exe; \
+		./upx put release/upx-windows-$$ARCH-$(VER) /softwares/upx/upx-windows-$$ARCH-$(VER).exe; \
 	done
 
 .PHONY: app vendor test release upload

@@ -1,5 +1,7 @@
+.*
 upx
 *.swo
 *.swp
 *.swn
 upx-*
+release
