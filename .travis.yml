@@ -14,12 +14,11 @@ sudo: required
 
 install:
     - export GO15VENDOREXPERIMENT=1
-    - go get -v -d
     - sudo apt-get update && sudo apt-get install -y dnsutils
     - dig v0.api.upyun.com
 
 script:
-    - make && make test
+    - make app && make test
 
 after_success:
     - echo $TRAVIS_GO_VERSION
