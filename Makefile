@@ -10,7 +10,7 @@ PWD= $(shell pwd)
 app:
 	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
 	cd $(PROJ_DIR)/$(APP) && go build -o $(APP) .
-	unlink $(PROJ_DIR)/$(APP)
+	- unlink $(PROJ_DIR)/$(APP)
 
 vendor:
 	- mkdir -p $(PROJ_DIR) && ln -s $(PWD) $(PROJ_DIR)/$(APP)
@@ -30,7 +30,7 @@ release:
 			GOOS=$$OS GOARCH=$$ARCH go test -c -o upx-$$OS-$$ARCH-$(VER).test .; \
 		done \
 	done
-	unlink $(PROJ_DIR)/$(APP)
+	- unlink $(PROJ_DIR)/$(APP)
 
 upload: release
 	./upx pwd
