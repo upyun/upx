@@ -303,13 +303,6 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 }
 
 func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInfo *upyun.FileInfo) (int, error) {
-	if upInfo.Size == 0 {
-		f, err := os.Create(localPath)
-		if f != nil {
-			return id, f.Close()
-		}
-		return id, err
-	}
 	var err error
 	bar, idx := AddBar(id, int(upInfo.Size))
 	bar = bar.AppendCompleted()

@@ -1,5 +1,5 @@
 ifndef VER
-	VER= $(shell grep -o -E '(v[0-9]+\.[0-9]+\.[0-9]+)' ./upx.go)
+	VER= 'latest'
 endif
 
 APP= upx
