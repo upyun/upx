@@ -408,6 +408,7 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 	if err != nil {
 		return idx, err
 	}
+	defer fd.Close()
 
 	var wg sync.WaitGroup
 	wReader := &ProgressReader{fd: fd}
