@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path"
@@ -282,7 +283,17 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 					if fInfo.IsDir {
 						os.MkdirAll(lpath, 0755)
 					} else {
-						id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo)
+						for i := 1; i <= MaxRetry; i++ {
+							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo)
+							if e == nil {
+								break
+							}
+							if !strings.Contains(e.Error(), "GET 429") {
+								break
+							}
+
+							time.Sleep(time.Duration(i*(rand.Intn(MaxJitter-MinJitter)+MinJitter)) * time.Second)
+						}
 					}
 					if e != nil {
 						return
@@ -306,6 +317,7 @@ func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInf
 	var err error
 	bar, idx := AddBar(id, int(upInfo.Size))
 	bar = bar.AppendCompleted()
+	cnt := 0
 	bar.PrependFunc(func(b *uiprogress.Bar) string {
 		status := "WAIT"
 		if b.Current() == b.Total {
@@ -314,7 +326,12 @@ func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInf
 		name := leftAlign(shortPath(localPath, 40), 40)
 		if err != nil {
 			b.Set(bar.Total)
-			return fmt.Sprintf("%s ERR %s", name, err)
+			if cnt == 0 {
+				cnt++
+				return fmt.Sprintf("%s ERR %s", name, err)
+			} else {
+				return ""
+			}
 		}
 		return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
 	})
