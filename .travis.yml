@@ -1,11 +1,9 @@
 language: go
 
 go:
-    - "1.7"
-    - "1.8"
-    - "1.9"
     - "1.10"
     - "1.11"
+    - "1.12"
 
 git:
     depth: 1
@@ -22,6 +20,6 @@ script:
 
 after_success:
     - echo $TRAVIS_GO_VERSION
-    - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.7" ];
+    - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.12" ];
       then echo $UPX_CONFIG > $HOME/.upx.cfg && make upload VER=$TRAVIS_TAG;
       fi
