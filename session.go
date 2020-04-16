@@ -288,7 +288,8 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 							if e == nil {
 								break
 							}
-							if !strings.Contains(e.Error(), "GET 429") {
+							if strings.Contains(e.Error(), "GET 404") {
+								e = nil
 								break
 							}
 
