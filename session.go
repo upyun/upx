@@ -534,7 +534,7 @@ func (sess *Session) rm(fpath string, isAsync bool, isFolder bool) {
 		Async:  isAsync,
 		Folder: isFolder,
 	})
-	if err == nil {
+	if err == nil || upyun.IsNotExist(err) {
 		sess.update(DELETE_OK)
 		PrintOnlyVerbose("DELETE %s OK", fpath)
 	} else {
