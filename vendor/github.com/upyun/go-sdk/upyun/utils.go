@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,7 +34,7 @@ var (
 		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 		0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 	}
-	hex = "0123456789ABCDEF"
+	hexMap = "0123456789ABCDEF"
 )
 
 func makeRFC1123Date(d time.Time) string {
@@ -100,8 +101,8 @@ func escapeUri(s string) string {
 		c := s[i]
 		if escape[c>>5]&(1<<(c&0x1f)) > 0 {
 			ret[j] = '%'
-			ret[j+1] = hex[c>>4]
-			ret[j+2] = hex[c&0xf]
+			ret[j+1] = hexMap[c>>4]
+			ret[j+2] = hexMap[c&0xf]
 			j = j + 3
 		} else {
 			ret[j] = c
@@ -199,23 +200,34 @@ func md5File(f io.ReadSeeker) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-func parseBodyToFileInfos(b []byte) (fInfos []*FileInfo) {
-	line := strings.Split(string(b), "\n")
-	for _, l := range line {
-		if len(l) == 0 {
-			continue
-		}
-		items := strings.Split(l, "\t")
-		if len(items) != 4 {
-			continue
-		}
+type JsonFileInfo struct {
+	ContentType  string `json:"type"`
+	Name         string `json:"name"`
+	Length       int64  `json:"length"`
+	LastModified int64  `json:"last_modified"`
+}
+type JsonFiles struct {
+	Files []*JsonFileInfo `json:"files"`
+	Iter  string          `json:"iter"`
+}
 
-		fInfos = append(fInfos, &FileInfo{
-			Name:  items[0],
-			IsDir: items[1] == "F",
-			Size:  int64(parseStrToInt(items[2])),
-			Time:  time.Unix(parseStrToInt(items[3]), 0),
-		})
+func parseBodyToFileInfos(b []byte) (iter string, fInfos []*FileInfo, err error) {
+	files := &JsonFiles{}
+	err = json.Unmarshal(b, files)
+	if err != nil {
+		return
+	}
+	
+	iter = files.Iter
+	fInfos = make([]*FileInfo, len(files.Files))
+
+	for i, f := range files.Files {
+		fInfos[i]=  &FileInfo{
+			Name:  f.Name,
+			IsDir: f.ContentType == "folder",
+			Size:  f.Length,
+			Time:  time.Unix(f.LastModified, 0),
+		}
 	}
 	return
 }
