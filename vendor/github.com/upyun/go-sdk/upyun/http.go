@@ -1,6 +1,7 @@
 package upyun
 
 import (
+	"bytes"
 	//	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +38,14 @@ func (up *UpYun) doHTTPRequest(method, url string, headers map[string]string,
 				}
 			case UpYunPutReader:
 				req.ContentLength = int64(v.Len())
+			case *bytes.Buffer:
+				req.ContentLength = int64(v.Len())
+			case *bytes.Reader:
+				req.ContentLength = int64(v.Len())
+			case *strings.Reader:
+				req.ContentLength = int64(v.Len())
+			case *io.LimitedReader:
+				req.ContentLength = int64(v.N)
 			}
 		}
 	}

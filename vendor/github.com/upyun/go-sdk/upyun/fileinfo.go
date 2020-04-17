@@ -54,7 +54,15 @@ func parseHeaderToFileInfo(header http.Header, getinfo bool) *FileInfo {
 	} else {
 		fInfo.Size = parseStrToInt(header.Get("Content-Length"))
 		fInfo.ContentType = header.Get("Content-Type")
-		fInfo.MD5 = strings.Replace(header.Get("ETag"), "\"", "", -1)
+		fInfo.MD5 = strings.Replace(header.Get("Content-Md5"), "\"", "", -1)
+		if fInfo.MD5 == "" {
+			fInfo.MD5 = strings.Replace(header.Get("Etag"), "\"", "", -1)
+		}
+		lastM := header.Get("Last-Modified")
+		t, err := http.ParseTime(lastM)
+		if err == nil {
+			fInfo.Time = t
+		}
 		fInfo.ImgType = header.Get("x-upyun-file-type")
 		fInfo.ImgWidth = parseStrToInt(header.Get("x-upyun-width"))
 		fInfo.ImgHeight = parseStrToInt(header.Get("x-upyun-height"))
