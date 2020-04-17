@@ -1,6 +1,6 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
-[![Release](https://img.shields.io/badge/release-v0.2.5-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.2.5)
+[![Release](https://img.shields.io/badge/release-v0.2.6-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.2.6)
 [![Build Status](https://travis-ci.org/upyun/upx.svg?branch=master)](https://travis-ci.org/upyun/upx)
 
 ## 基本功能
@@ -23,11 +23,11 @@
 
 ### 可执行程序二进制下载地址
 
-- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.2.5)
-- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.2.5)
-- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.2.5.exe)
-- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.2.5.exe)
-- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.2.5)
+- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.2.6)
+- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.2.6)
+- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.2.6.exe)
+- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.2.6.exe)
+- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.2.6)
 
 ### 源码编译
 
