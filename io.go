@@ -41,7 +41,7 @@ func NewFileWrappedWriter(localPath string) (*WrappedWriter, error) {
 }
 
 func Print(arg0 string, args ...interface{}) {
-	s := arg0  //arg0 may include '%'
+	s := arg0 //arg0 may include '%'
 	if len(args) > 0 {
 		s = fmt.Sprintf(arg0, args...)
 	}

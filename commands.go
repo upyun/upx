@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/codegangsta/cli"
 	"github.com/fatih/color"
 	"github.com/howeyc/gopass"
+	"github.com/urfave/cli"
 )
 
 const (
