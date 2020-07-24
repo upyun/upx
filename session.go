@@ -16,7 +16,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
-	"github.com/upyun/go-sdk/upyun"
+	"github.com/upyun/go-sdk/v3/upyun"
 )
 
 const (
