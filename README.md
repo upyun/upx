@@ -40,7 +40,7 @@ $ cd upx && make
 or
 
 ```
-$ go get github.com/upyun/upx
+$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.1
 ```
 
 ### Docker

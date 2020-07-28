@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const VERSION = "v0.2.6"
+const VERSION = "v0.3.1"
 
 func main() {
 	initProgress()
