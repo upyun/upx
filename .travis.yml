@@ -1,9 +1,7 @@
 language: go
 
 go:
-    - "1.10"
-    - "1.11"
-    - "1.12"
+    - "1.13"
 
 git:
     depth: 1
@@ -11,7 +9,6 @@ git:
 sudo: required
 
 install:
-    - export GO15VENDOREXPERIMENT=1
     - sudo apt-get update && sudo apt-get install -y dnsutils
     - dig v0.api.upyun.com
 
@@ -20,6 +17,6 @@ script:
 
 after_success:
     - echo $TRAVIS_GO_VERSION
-    - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.12" ];
+    - if [ ! -z $TRAVIS_TAG ] && [ $TRAVIS_GO_VERSION == "1.13" ];
       then echo $UPX_CONFIG > $HOME/.upx.cfg && make upload VER=$TRAVIS_TAG;
       fi

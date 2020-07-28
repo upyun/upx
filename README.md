@@ -1,6 +1,6 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
-[![Release](https://img.shields.io/badge/release-v0.2.6-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.2.6)
+[![Release](https://img.shields.io/badge/release-v0.3.1-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.3.1)
 [![Build Status](https://travis-ci.org/upyun/upx.svg?branch=master)](https://travis-ci.org/upyun/upx)
 
 ## 基本功能
@@ -15,7 +15,7 @@
 - [x] 支持 `tree` 获取目录结构
 - [x] 支持提交异步处理任务
 - [x] 更加准确简洁的进度条
-- [x] 使用 UPYUN GoSDK 2.1.0
+- [x] 使用 UPYUN GoSDK v3
 - [x] 同步目录支持 --delete
 - [x] 支持 CDN 缓存刷新
 
@@ -23,11 +23,11 @@
 
 ### 可执行程序二进制下载地址
 
-- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.2.6)
-- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.2.6)
-- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.2.6.exe)
-- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.2.6.exe)
-- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.2.6)
+- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.3.1)
+- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.3.1)
+- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.3.1.exe)
+- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.3.1.exe)
+- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.3.1)
 
 ### 源码编译
 

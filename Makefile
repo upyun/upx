@@ -10,7 +10,6 @@ PWD= $(shell pwd)
 app:
 	go build -o $(APP) .
 
-
 test:
 	go test -v .
 
