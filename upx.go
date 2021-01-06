@@ -9,7 +9,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-const VERSION = "v0.3.1"
+const VERSION = "v0.3.2"
 
 func main() {
 	initProgress()
