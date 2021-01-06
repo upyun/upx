@@ -682,7 +682,6 @@ func (sess *Session) tree(upPath, prefix string, output chan string) (folders, f
 		ObjectsChan: upInfos,
 	})
 	wg.Wait()
-
 	return
 }
 

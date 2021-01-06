@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/syndtr/goleveldb/leveldb"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var db *leveldb.DB

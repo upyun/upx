@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/upyun/go-sdk/v3/upyun"
 	"path/filepath"
 	"time"
+
+	"github.com/upyun/go-sdk/v3/upyun"
 )
 
 const (

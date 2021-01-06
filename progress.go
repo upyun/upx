@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/gosuri/uiprogress"
 	"time"
+
+	"github.com/gosuri/uiprogress"
 )
 
 var progress *uiprogress.Progress

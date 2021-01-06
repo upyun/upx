@@ -1,5 +1,5 @@
 ifndef VER
-	VER= 'latest'
+	VER= latest
 endif
 
 APP= upx
@@ -14,23 +14,18 @@ test:
 	go test -v .
 
 release:
-	rm -rf release
-	for OS in linux windows darwin; do \
-		for ARCH in amd64 386; do \
-			GOOS=$$OS GOARCH=$$ARCH go build -o release/upx-$$OS-$$ARCH-$(VER) .; \
-		done \
-	done
-	tar -zcf release/upx-$(VER).tar.gz release/*
+	goreleaser --rm-dist
 
 upload: release
 	./upx pwd
-	for OS in linux darwin; do \
-		for ARCH in amd64 386; do \
-			./upx put release/upx-$$OS-$$ARCH-$(VER) /softwares/upx/; \
-		done \
+	./upx put dist/upx_darwin_amd64/upx /softwares/upx/upx_darwin_amd64_$(VER); \
+
+	for ARCH in amd64 386 arm64 arm_6 arm_7; do \
+		./upx put dist/upx_linux_$$ARCH/upx /softwares/upx/upx_linux_$$ARCH_$(VER); \
 	done
+
 	for ARCH in amd64 386; do \
-		./upx put release/upx-windows-$$ARCH-$(VER) /softwares/upx/upx-windows-$$ARCH-$(VER).exe; \
+		./upx put dist/upx_windows_$$ARCH/upx.exe /softwares/upx/upx_windows_$$ARCH_$(VER).exe; \
 	done
 
 .PHONY: app test release upload
