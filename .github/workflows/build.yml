@@ -30,3 +30,6 @@ jobs:
         run: |
           go get -u github.com/upyun/upx
           upx -v
+      - name: Test
+        run: |
+          go test -v .

@@ -88,7 +88,8 @@ func getDir(t *testing.T, src, dst, correct string) {
 
 func TestPutAndGet(t *testing.T) {
 	base := ROOT + "/put/"
-	pwd := "/tmp"
+	pwd, err := ioutil.TempDir("", "test")
+	Nil(t, err)
 	localBase := filepath.Join(pwd, "put")
 	func() {
 		SetUp()
@@ -97,7 +98,7 @@ func TestPutAndGet(t *testing.T) {
 	}()
 	defer TearDown()
 
-	err := os.Chdir(localBase)
+	err = os.Chdir(localBase)
 	Nil(t, err)
 	Upx("mkdir", base)
 	Upx("cd", base)
