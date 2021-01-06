@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/urfave/cli"
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/urfave/cli"
 )
 
 const VERSION = "v0.3.1"
