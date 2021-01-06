@@ -1,5 +1,5 @@
 ifndef VER
-	VER= 'latest'
+	VER= latest
 endif
 
 APP= upx
@@ -18,14 +18,14 @@ release:
 
 upload: release
 	./upx pwd
-	./upx put dist/upx_darwin_amd64/upx /softwares/upx/upx-darwin-amd64-$(VER); \
+	./upx put dist/upx_darwin_amd64/upx /softwares/upx/upx_darwin_amd64_$(VER); \
 
 	for ARCH in amd64 386 arm64 arm_6 arm_7; do \
-		./upx put dist/upx_linux_$$ARCH/upx /softwares/upx/upx-linux-$$ARCH-$(VER); \
+		./upx put dist/upx_linux_$$ARCH/upx /softwares/upx/upx_linux_$$ARCH_$(VER); \
 	done
 
 	for ARCH in amd64 386; do \
-		./upx put dist/upx_windows_$$ARCH/upx.exe /softwares/upx/upx-windows-$$ARCH-$(VER).exe; \
+		./upx put dist/upx_windows_$$ARCH/upx.exe /softwares/upx/upx_windows_$$ARCH_$(VER).exe; \
 	done
 
 .PHONY: app test release upload
