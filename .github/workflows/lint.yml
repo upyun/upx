@@ -1,7 +1,9 @@
 name: Lint
 on:
-  push:
   pull_request:
+  push:
+    tags-ignore:
+      - '*'
 
 jobs:
   golangci:

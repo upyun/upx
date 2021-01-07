@@ -37,6 +37,13 @@ archives:
       amd64: x86_64
 checksum:
   name_template: "checksums.txt"
+publishers:
+  - name: upyun
+    checksum: true
+    cmd: ../upx put {{ .ArtifactName }} /softwares/upx/
+    dir: "{{ dir .ArtifactPath }}"
+    env:
+      - HOME={{ .Env.HOME }}
 snapshot:
   name_template: "{{ .Tag }}-next"
 changelog:
