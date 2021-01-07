@@ -1,4 +1,4 @@
-name: Build
+name: Test
 on: [push, pull_request]
 
 jobs:
@@ -10,6 +10,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       GO111MODULE: "on"
+      UPYUN_BUCKET1: ${{ secrets.UPYUN_BUCKET1 }}
+      UPYUN_BUCKET2: ${{ secrets.UPYUN_BUCKET2 }}
+      UPYUN_PASSWORD: ${{ secrets.UPYUN_PASSWORD }}
+      UPYUN_USERNAME: ${{ secrets.UPYUN_USERNAME }}
     steps:
       - name: Install Go
         uses: actions/setup-go@v2
@@ -18,14 +22,16 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Download Go modules
         run: go mod download
-
-      - name: Build
+      - name: Test
         run: |
-          go build -v .
-          ./upx -v
-      - name: Install
-        run: |
-          go get -u github.com/upyun/upx
-          upx -v
+          go build .
+          go test -v .

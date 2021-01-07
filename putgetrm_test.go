@@ -151,6 +151,7 @@ func TestPutAndGet(t *testing.T) {
 
 	// upx get /path/to/file /path/to/dir/
 	localPath = filepath.Join(localBase, "getfile") + string(filepath.Separator)
+	os.MkdirAll(localPath, 0755)
 	getFile(t, "FILE", localPath, filepath.Join(localPath, "FILE"))
 
 	// upx get ../path/to/dir

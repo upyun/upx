@@ -16,10 +16,10 @@ import (
 
 var (
 	ROOT     = fmt.Sprintf("/upx-test/%s", time.Now())
-	BUCKET_1 = "bigfile"
-	BUCKET_2 = "prog-test"
-	USERNAME = "myworker"
-	PASSWORD = "TYGHBNtyghbn"
+	BUCKET_1 = os.Getenv("UPYUN_BUCKET1")
+	BUCKET_2 = os.Getenv("UPYUN_BUCKET2")
+	USERNAME = os.Getenv("UPYUN_USERNAME")
+	PASSWORD = os.Getenv("UPYUN_PASSWORD")
 )
 
 func SetUp() {
