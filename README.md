@@ -26,11 +26,14 @@
 
 ### 可执行程序二进制下载地址
 
-- [Linux 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-amd64-v0.3.1)
-- [Linux 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-linux-386-v0.3.1)
-- [Windows 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-amd64-v0.3.1.exe)
-- [Windows 32位](http://collection.b0.upaiyun.com/softwares/upx/upx-windows-386-v0.3.1.exe)
-- [Mac 64位](http://collection.b0.upaiyun.com/softwares/upx/upx-darwin-amd64-v0.3.1)
+- [Linux x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_x86_64.tar.gz)
+- [Linux i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_i386.tar.gz)
+- [Windows x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Windows_x86_64.zip)
+- [Windows i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Windows_i386.zip)
+- [Mac x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Darwin_x86_64.tar.gz)
+- [Linux arm64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_arm64.tar.gz)
+- [Linux armv6](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_armv6.tar.gz)
+- [Linux armv7](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_armv7.tar.gz)
 
 ### 源码编译
 
@@ -43,7 +46,7 @@ $ cd upx && make
 or
 
 ```
-$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.1
+$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.3
 ```
 
 ### Docker
