@@ -3,7 +3,6 @@
 ![Test](https://github.com/upyun/upx/workflows/Test/badge.svg)
 ![Build](https://github.com/upyun/upx/workflows/Build/badge.svg)
 ![Lint](https://github.com/upyun/upx/workflows/Lint/badge.svg)
-![GitHub License](https://img.shields.io/github/license/upyun/upx)
 ![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/upyun/upx?label=latest%20release)
 
 ## 基本功能
@@ -26,11 +25,11 @@
 
 ### 可执行程序二进制下载地址
 
-- [Linux x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_x86_64.tar.gz)
-- [Linux i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_i386.tar.gz)
 - [Windows x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Windows_x86_64.zip)
 - [Windows i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Windows_i386.zip)
 - [Mac x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_Darwin_x86_64.tar.gz)
+- [Linux x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_x86_64.tar.gz)
+- [Linux i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_i386.tar.gz)
 - [Linux arm64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_arm64.tar.gz)
 - [Linux armv6](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_armv6.tar.gz)
 - [Linux armv7](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.3_linux_armv7.tar.gz)
@@ -47,6 +46,15 @@ or
 
 ```
 $ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.3
+```
+
+### Windows
+
+```
+PS> scoop bucket add carrot https://github.com/upyun/carrot.git
+Install upx from github or upyun cdn:
+PS> scoop install upx-github
+PS> scoop install upx-upcdn
 ```
 
 ### Docker
