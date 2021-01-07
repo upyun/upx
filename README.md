@@ -1,7 +1,10 @@
 > upx is a tool for managing files in UPYUN. Mac, Linux, Windows supported
 
-[![Release](https://img.shields.io/badge/release-v0.3.1-orange.svg)](https://github.com/upyun/upx/releases/tag/v0.3.1)
-[![Build Status](https://travis-ci.org/upyun/upx.svg?branch=master)](https://travis-ci.org/upyun/upx)
+![Test](https://github.com/upyun/upx/workflows/Test/badge.svg)
+![Build](https://github.com/upyun/upx/workflows/Build/badge.svg)
+![Lint](https://github.com/upyun/upx/workflows/Lint/badge.svg)
+![GitHub License](https://img.shields.io/github/license/upyun/upx)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/upyun/upx?label=latest%20release)
 
 ## 基本功能
 
