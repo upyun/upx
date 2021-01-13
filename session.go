@@ -288,7 +288,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 							if e == nil {
 								break
 							}
-							if strings.Contains(e.Error(), "GET 404") {
+							if upyun.IsNotExist(e) {
 								e = nil
 								break
 							}

@@ -2,6 +2,7 @@ upx
 *.swo
 *.swp
 *.swn
+tmp
 upx-*
 release
 dist
