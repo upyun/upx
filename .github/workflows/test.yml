@@ -1,7 +1,7 @@
 name: Test
 on:
-  pull_request:
-  push:
+  pull_request_target:
+    types: [labeled]
 
 jobs:
   build:
@@ -10,6 +10,7 @@ jobs:
         go-version: [^1]
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    if: contains(github.event.pull_request.labels.*.name, 'ok to test')
     env:
       GO111MODULE: "on"
       UPYUN_BUCKET1: ${{ secrets.UPYUN_BUCKET1 }}
@@ -24,6 +25,10 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
       - uses: actions/cache@v1
         with:
           path: ~/go/pkg/mod
