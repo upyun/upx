@@ -3,6 +3,7 @@
 ![Test](https://github.com/upyun/upx/workflows/Test/badge.svg)
 ![Build](https://github.com/upyun/upx/workflows/Build/badge.svg)
 ![Lint](https://github.com/upyun/upx/workflows/Lint/badge.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/upyun/upx)](https://goreportcard.com/report/github.com/upyun/upx)
 ![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/upyun/upx?label=latest%20release)
 
 ## 基本功能
