@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/gosuri/uiprogress"
 )
 
 var (
@@ -16,11 +18,15 @@ var (
 type WrappedWriter struct {
 	w      io.WriteCloser
 	Copyed int
+	bar    *uiprogress.Bar
 }
 
 func (w *WrappedWriter) Write(b []byte) (int, error) {
 	n, err := w.w.Write(b)
 	w.Copyed += n
+	if w.bar != nil {
+		w.bar.Set(w.Copyed)
+	}
 	return n, err
 }
 
@@ -28,7 +34,7 @@ func (w *WrappedWriter) Close() error {
 	return w.w.Close()
 }
 
-func NewFileWrappedWriter(localPath string) (*WrappedWriter, error) {
+func NewFileWrappedWriter(localPath string, bar *uiprogress.Bar) (*WrappedWriter, error) {
 	fd, err := os.Create(localPath)
 	if err != nil {
 		return nil, err
@@ -37,6 +43,7 @@ func NewFileWrappedWriter(localPath string) (*WrappedWriter, error) {
 	return &WrappedWriter{
 		w:      fd,
 		Copyed: 0,
+		bar:    bar,
 	}, nil
 }
 
