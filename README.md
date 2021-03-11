@@ -26,14 +26,14 @@
 
 ### 可执行程序二进制下载地址
 
-- [Windows x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_Windows_x86_64.zip)
-- [Windows i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_Windows_i386.zip)
-- [Mac x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_Darwin_x86_64.tar.gz)
-- [Linux x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_linux_x86_64.tar.gz)
-- [Linux i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_linux_i386.tar.gz)
-- [Linux arm64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_linux_arm64.tar.gz)
-- [Linux armv6](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_linux_armv6.tar.gz)
-- [Linux armv7](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.4_linux_armv7.tar.gz)
+- [Windows x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_Windows_x86_64.zip)
+- [Windows i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_Windows_i386.zip)
+- [Mac x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_Darwin_x86_64.tar.gz)
+- [Linux x86_64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_linux_x86_64.tar.gz)
+- [Linux i386](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_linux_i386.tar.gz)
+- [Linux arm64](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_linux_arm64.tar.gz)
+- [Linux armv6](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_linux_armv6.tar.gz)
+- [Linux armv7](http://collection.b0.upaiyun.com/softwares/upx/upx_0.3.5_linux_armv7.tar.gz)
 
 ### 源码编译
 
@@ -46,7 +46,7 @@ $ cd upx && make
 or
 
 ```
-$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.4
+$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.5
 ```
 
 ### Windows
