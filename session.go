@@ -316,56 +316,47 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 
 func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInfo *upyun.FileInfo) (int, error) {
 	var err error
-	bar, idx := AddBar(id, int(upInfo.Size))
-	bar = bar.AppendCompleted()
-	cnt := 0
-	bar.PrependFunc(func(b *uiprogress.Bar) string {
-		status := "WAIT"
-		if b.Current() == b.Total {
-			status = "OK"
-		}
-		name := leftAlign(shortPath(localPath, 40), 40)
-		if err != nil {
-			b.Set(bar.Total)
-			if cnt == 0 {
-				cnt++
-				return fmt.Sprintf("%s ERR %s", name, err)
-			} else {
-				return ""
+
+	var bar *uiprogress.Bar
+	idx := id
+	if upInfo.Size > 0 {
+		bar, idx = AddBar(id, int(upInfo.Size))
+		bar = bar.AppendCompleted()
+		cnt := 0
+		bar.PrependFunc(func(b *uiprogress.Bar) string {
+			status := "WAIT"
+			if b.Current() == b.Total {
+				status = "OK"
 			}
-		}
-		return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-	})
+			name := leftAlign(shortPath(localPath, 40), 40)
+			if err != nil {
+				b.Set(bar.Total)
+				if cnt == 0 {
+					cnt++
+					return fmt.Sprintf("%s ERR %s", name, err)
+				} else {
+					return ""
+				}
+			}
+			return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
+		})
+	}
 
 	dir := filepath.Dir(localPath)
 	if err = os.MkdirAll(dir, 0755); err != nil {
 		return id, err
 	}
 
-	w, err := NewFileWrappedWriter(localPath)
+	w, err := NewFileWrappedWriter(localPath, bar)
 	if err != nil {
 		return id, err
 	}
 	defer w.Close()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for err == nil {
-			if w.Copyed == bar.Total {
-				bar.Set(w.Copyed)
-				break
-			}
-			bar.Set(w.Copyed)
-		}
-	}()
-
 	_, err = sess.updriver.Get(&upyun.GetObjectConfig{
 		Path:   sess.AbsPath(upPath),
 		Writer: w,
 	})
-	wg.Wait()
 	return idx, err
 }
 
