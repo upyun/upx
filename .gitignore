@@ -1,4 +1,6 @@
 upx
+upx.exe
+.vscode
 *.swo
 *.swp
 *.swn
