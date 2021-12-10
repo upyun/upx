@@ -29,10 +29,11 @@ const (
 )
 
 type Session struct {
-	Bucket   string `json:"bucket"`
-	Operator string `json:"username"`
-	Password string `json:"password"`
-	CWD      string `json:"cwd"`
+	Bucket          string `json:"bucket"`
+	Operator        string `json:"username"`
+	Password        string `json:"password"`
+	PasswordEncrypt bool   `json:"password_encrypt"`
+	CWD             string `json:"cwd"`
 
 	updriver *upyun.UpYun
 	color    bool
@@ -147,10 +148,11 @@ func (sess *Session) FormatUpInfo(upInfo *upyun.FileInfo) string {
 func (sess *Session) Init() error {
 	sess.scores = make(map[int]int)
 	sess.updriver = upyun.NewUpYun(&upyun.UpYunConfig{
-		Bucket:    sess.Bucket,
-		Operator:  sess.Operator,
-		Password:  sess.Password,
-		UserAgent: fmt.Sprintf("upx/%s", VERSION),
+		Bucket:          sess.Bucket,
+		Operator:        sess.Operator,
+		Password:        sess.Password,
+		PasswordEncrypt: sess.PasswordEncrypt,
+		UserAgent:       fmt.Sprintf("upx/%s", VERSION),
 	})
 	_, err := sess.updriver.Usage()
 	return err

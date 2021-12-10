@@ -99,18 +99,12 @@ func readConfigFromFile(login bool) {
 		confname = getConfigName()
 	}
 
-	b, err := ioutil.ReadFile(confname)
+	data, err := ioutil.ReadFile(confname)
 	if err != nil {
 		os.RemoveAll(confname)
 		if os.IsNotExist(err) && login == NO_LOGIN {
 			return
 		}
-		PrintErrorAndExit("read config: %v", err)
-	}
-
-	data, err := base64.StdEncoding.DecodeString(hashEncode(string(b)))
-	if err != nil {
-		os.RemoveAll(confname)
 		PrintErrorAndExit("read config: %v", err)
 	}
 
@@ -140,18 +134,17 @@ func saveConfigToFile() {
 		confname = getConfigName()
 	}
 
-	b, err := json.Marshal(config)
+	s, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		PrintErrorAndExit("save config: %v", err)
 	}
-	s := hashEncode(base64.StdEncoding.EncodeToString(b))
 
 	fd, err := os.Create(confname)
 	if err != nil {
 		PrintErrorAndExit("save config: %v", err)
 	}
 	defer fd.Close()
-	_, err = fd.WriteString(s)
+	_, err = fd.Write(s)
 
 	if err != nil {
 		PrintErrorAndExit("save config: %v", err)

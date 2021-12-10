@@ -14,3 +14,5 @@ require (
 	github.com/urfave/cli v1.22.4
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
 )
+
+replace github.com/upyun/go-sdk/v3 v3.0.2 => github.com/huangnauh/go-sdk/v3 v3.0.0-20211209081343-9747a25ec3f4
