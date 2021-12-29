@@ -60,6 +60,7 @@ func main() {
 		NewPostCommand(),
 		NewPurgeCommand(),
 		NewGetDBCommand(),
+		NewCleanDBCommand(),
 		NewUpgradeCommand(),
 	}
 
