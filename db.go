@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -115,6 +116,29 @@ func delDBValue(src, dst string) error {
 	}
 
 	return db.Delete(key, nil)
+}
+
+func delDBValues(srcPrefix, dstPrefix string) {
+	dstPrefix = path.Join(session.Bucket, dstPrefix)
+	iter := db.NewIterator(nil, nil)
+	if ok := iter.First(); !ok {
+		return
+	}
+	for {
+		k := new(dbKey)
+		key := iter.Key()
+		err := json.Unmarshal(key, k)
+		if err != nil {
+			PrintError("decode %s: %v", string(key), err)
+		}
+		if strings.HasPrefix(k.SrcPath, srcPrefix) && strings.HasPrefix(k.DstPath, dstPrefix) {
+			PrintOnlyVerbose("found %s => %s to delete", k.SrcPath, k.DstPath)
+			db.Delete(iter.Key(), nil)
+		}
+		if ok := iter.Next(); !ok {
+			break
+		}
+	}
 }
 
 func makeFileMetas(dirname string) ([]*fileMeta, error) {
