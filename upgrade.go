@@ -49,11 +49,17 @@ func DownloadBin(version, binPath string) error {
 	if runtime.GOOS == "windows" {
 		url += ".exe"
 	}
+	fmt.Print(url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("Download %s: %v", url, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		content, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("Download %s %d: %s", url, resp.StatusCode, string(content))
+	}
 
 	_, err = io.Copy(fd, resp.Body)
 	if err != nil {

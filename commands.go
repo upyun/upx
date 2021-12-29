@@ -452,6 +452,24 @@ func NewGetDBCommand() cli.Command {
 	}
 }
 
+func NewCleanDBCommand() cli.Command {
+	return cli.Command{
+		Name:  "clean-db",
+		Usage: "clean db by local_prefx and remote_prefix",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			if c.NArg() != 2 {
+				PrintErrorAndExit("clean-db local remote")
+			}
+			if err := initDB(); err != nil {
+				PrintErrorAndExit("clean-db: init database: %v", err)
+			}
+			delDBValues(c.Args()[0], c.Args()[1])
+			return nil
+		},
+	}
+}
+
 func NewUpgradeCommand() cli.Command {
 	return cli.Command{
 		Name:  "upgrade",
