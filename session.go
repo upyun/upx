@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fatih/color"
@@ -29,11 +30,12 @@ const (
 )
 
 type Session struct {
-	Bucket          string `json:"bucket"`
-	Operator        string `json:"username"`
-	Password        string `json:"password"`
-	PasswordEncrypt bool   `json:"password_encrypt"`
-	CWD             string `json:"cwd"`
+	Bucket          string            `json:"bucket"`
+	Operator        string            `json:"username"`
+	Password        string            `json:"password"`
+	PasswordEncrypt bool              `json:"password_encrypt"`
+	Hosts           map[string]string `json:"hosts"`
+	CWD             string            `json:"cwd"`
 
 	updriver *upyun.UpYun
 	color    bool
@@ -152,6 +154,7 @@ func (sess *Session) Init() error {
 		Operator:        sess.Operator,
 		Password:        sess.Password,
 		PasswordEncrypt: sess.PasswordEncrypt,
+		Hosts:           sess.Hosts,
 		UserAgent:       fmt.Sprintf("upx/%s", VERSION),
 	})
 	_, err := sess.updriver.Usage()
@@ -849,6 +852,7 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete, strong 
 	}
 
 	var delLock sync.Mutex
+	var count int64
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
@@ -857,11 +861,12 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete, strong 
 				switch v := task.(type) {
 				case *syncTask:
 					stat, err := sess.syncFile(v.src, v.dest, strong)
+					newCount := atomic.AddInt64(&count, 1)
 					switch stat {
 					case SYNC_OK:
-						PrintOnlyVerbose("sync %s to %s OK", v.src, v.dest)
+						PrintOnlyVerbose("sync %s to %s OK %d", v.src, v.dest, newCount)
 					case SYNC_EXISTS:
-						PrintOnlyVerbose("sync %s to %s EXISTS", v.src, v.dest)
+						PrintOnlyVerbose("sync %s to %s EXISTS %d", v.src, v.dest, newCount)
 					case SYNC_FAIL, SYNC_NOT_FOUND:
 						PrintError("sync %s to %s FAIL %v", v.src, v.dest, err)
 					}
