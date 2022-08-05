@@ -92,6 +92,29 @@ func CreateFile(fpath string) {
 	fd.Close()
 }
 
+func TestUploadFile(t *testing.T) {
+	// go run .  put -w 5 ./source/target/xx /upyun/xx
+	local := "./source/target/xx"
+	remote := "/upyun/xx"
+	b, err := Upx("put", local, remote)
+	if err != nil {
+		t.Log(err)
+	}
+	t.Log(b)
+}
+
+func TestGetFile(t *testing.T) {
+	// go run . get "*" ./source/target/ --end ".png"
+	remote := "*"
+	local := "./source/target/"
+	local, _ = filepath.Abs(local)
+	b, err := Upx("get", remote, local, "--end", ".png")
+	if err != nil {
+		t.Log(err)
+	}
+	t.Log(b)
+}
+
 func Upx(args ...string) ([]byte, error) {
 	cmd := exec.Command("upx", args...)
 	var obuf, ebuf bytes.Buffer

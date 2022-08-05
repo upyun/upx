@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/upyun/go-sdk/v3/upyun"
@@ -27,6 +28,9 @@ type MatchConfig struct {
 	Before   time.Time
 	After    time.Time
 
+	Prefix string
+	Suffix string
+
 	ItemType int
 }
 
@@ -35,6 +39,13 @@ func IsMatched(upInfo *upyun.FileInfo, mc *MatchConfig) bool {
 		if same, _ := filepath.Match(mc.Wildcard, upInfo.Name); !same {
 			return false
 		}
+	}
+
+	if !strings.HasSuffix(upInfo.Name, mc.Suffix) {
+		return false
+	}
+	if !strings.HasPrefix(upInfo.Name, mc.Prefix) {
+		return false
 	}
 
 	switch mc.TimeType {
