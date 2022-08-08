@@ -277,12 +277,12 @@ func NewGetCommand() cli.Command {
 				}
 			}
 
-			if c.String("start") != "" {
-				mc.Prefix = c.String("start")
+			if c.String("prefix") != "" {
+				mc.Prefix = c.String("prefix")
 			}
 
-			if c.String("end") != "" {
-				mc.Suffix = c.String("end")
+			if c.String("suffix") != "" {
+				mc.Suffix = c.String("suffix")
 			}
 			session.Get(upPath, localPath, mc, c.Int("w"))
 
@@ -291,8 +291,8 @@ func NewGetCommand() cli.Command {
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
-			cli.StringFlag{Name: "start", Usage: "prefix"},
-			cli.StringFlag{Name: "end", Usage: "suffix"},
+			cli.StringFlag{Name: "prefix", Usage: "prefix"},
+			cli.StringFlag{Name: "suffix", Usage: "suffix"},
 		},
 	}
 }
