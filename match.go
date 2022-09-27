@@ -27,6 +27,9 @@ type MatchConfig struct {
 	Before   time.Time
 	After    time.Time
 
+	Start string
+	End   string
+
 	ItemType int
 }
 
