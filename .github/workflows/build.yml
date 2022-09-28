@@ -27,7 +27,3 @@ jobs:
         run: |
           go build -v .
           ./upx -v
-      - name: Install
-        run: |
-          go get -u github.com/upyun/upx
-          upx -v
