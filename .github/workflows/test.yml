@@ -1,7 +1,6 @@
 name: Test
 on:
-  pull_request_target:
-    types: [labeled]
+  pull_request:
 
 jobs:
   build:
