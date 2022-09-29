@@ -983,28 +983,32 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		PrintErrorAndExit("File source or destination is not null")
 	}
 
+	var fileName string
+	conf.DestPath, fileName = path.Split(conf.DestPath)
+
 	//判断移动的文件是绝对路径还是相对路径
-	sDir, srcFname := path.Split(conf.SrcPath)
-	//相对路径加上当前路径
-	if len(sDir) == 0 {
-		conf.SrcPath = path.Join(sess.CWD, conf.SrcPath)
-	}
-
-	//判断移动后的文件是否有需要重新命名
-	dir, fname := path.Split(conf.DestPath)
-	if len(dir) == 0 {
-		conf.DestPath = path.Join(fname, srcFname)
-		dir = fname
-	} else if len(fname) == 0 { //  a/
-		conf.DestPath = path.Join(dir, srcFname)
-	}
-
-	//判断目的目录是否存在
-	_, exist := sess.IsUpYunDir(dir)
+	upPath, file := path.Split(conf.SrcPath)
+	conf.SrcPath = path.Join(sess.AbsPath(upPath), file)
 	//判断要移动的文件是否存在
 	_, err := sess.updriver.GetInfo(conf.SrcPath)
 	if err != nil {
 		PrintErrorAndExit("File %s not found", conf.SrcPath)
+	}
+
+	//判断目的目录是否存在
+	conf.DestPath = sess.AbsPath(conf.DestPath)
+	_, exist := sess.IsUpYunDir(conf.DestPath)
+	//如果目的目录不存在，则创建
+	if !exist {
+		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
+			PrintErrorAndExit("mkdir file error = %s", err)
+		}
+	}
+	//判断输入的目的目录是一个目录还是目录加重命名的文件名
+	if len(fileName) == 0 { //不重命名
+		conf.DestPath = path.Join(conf.DestPath, file)
+	} else {
+		conf.DestPath = path.Join(conf.DestPath, fileName)
 	}
 
 	//判断目的地址是否存在这个文件
@@ -1014,16 +1018,8 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		PrintErrorAndExit("File %s is exist", conf.DestPath)
 	}
 
-	//如果目的目录不存在，则创建
-	if !exist {
-		if err := sess.updriver.Mkdir(dir); err != nil {
-			PrintErrorAndExit("mkdir file error = %s", err)
-		}
-	}
-
 	//移动
 	err = sess.updriver.Move(conf)
-
 	if err != nil {
 		PrintErrorAndExit("MOVE file %s failed", conf.SrcPath)
 	} else {
@@ -1035,47 +1031,41 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 	//输入的地址为空
 	if len(conf.SrcPath) == 0 || len(conf.DestPath) == 0 {
-		Print("File source or destination is not null")
-		return
+		PrintErrorAndExit("File source or destination is not null")
 	}
+
+	var fileName string
+	conf.DestPath, fileName = path.Split(conf.DestPath)
 
 	//判断移动的文件是绝对路径还是相对路径
-	sDir, srcFname := path.Split(conf.SrcPath)
-	//相对路径加上当前路径
-	if len(sDir) == 0 {
-		conf.SrcPath = path.Join(sess.CWD, conf.SrcPath)
-	}
-
-	//判断移动后的文件是否有需要重新命名
-	dir, fname := path.Split(conf.DestPath)
-	if len(dir) == 0 {
-		conf.DestPath = path.Join(fname, srcFname)
-		dir = fname
-	} else if len(fname) == 0 { //  a/
-		conf.DestPath = path.Join(dir, srcFname)
-	}
-
-	//目的文件的所在目录
-	Path := path.Dir(conf.DestPath)
-	//目的目录是否存在
-	_, exist := sess.IsUpYunDir(Path)
-	//要复制的文件是否存在
+	upPath, file := path.Split(conf.SrcPath)
+	conf.SrcPath = path.Join(sess.AbsPath(upPath), file)
+	//判断要移动的文件是否存在
 	_, err := sess.updriver.GetInfo(conf.SrcPath)
 	if err != nil {
-		PrintOnlyVerbose("File %s not found", conf.SrcPath)
-		return
+		PrintErrorAndExit("File %s not found", conf.SrcPath)
 	}
 
+	//判断目的目录是否存在
+	conf.DestPath = sess.AbsPath(conf.DestPath)
+	_, exist := sess.IsUpYunDir(conf.DestPath)
+	//如果目的目录不存在，则创建
+	if !exist {
+		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
+			PrintErrorAndExit("mkdir file error = %s", err)
+		}
+	}
+	//判断输入的目的目录是一个目录还是目录加重命名的文件名
+	if len(fileName) == 0 { //不重命名
+		conf.DestPath = path.Join(conf.DestPath, file)
+	} else {
+		conf.DestPath = path.Join(conf.DestPath, fileName)
+	}
+	//判断目的地址是否存在这个文件
 	_, err = sess.updriver.GetInfo(conf.DestPath)
 	//文件存在不覆盖
 	if flag == 0 && err == nil {
 		PrintErrorAndExit("File %s is exist", conf.DestPath)
-	}
-	//如果目的目录不存在，则创建
-	if !exist {
-		if err := sess.updriver.Mkdir(Path); err != nil {
-			PrintErrorAndExit("mkdir file error = %s", err)
-		}
 	}
 
 	//移动
@@ -1083,14 +1073,13 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 	if err != nil {
 		PrintErrorAndExit("COPY file %s failed", conf.SrcPath)
 	} else {
-		PrintOnlyVerbose("COPY file %s OK", conf.SrcPath)
+		PrintOnlyVerbose("COPY %s OK", conf.SrcPath)
 		return
 	}
-
 }
 
-// ResumePut upx 命令行实现续传临时信息保存和清理命令 resumeput
-//1. 默认清除所有的信息
+// ResumePut upx 命令行实现续传临时信息保存和清理命令 resume-put
+//错误时输出结构体信息
 
 var TempPath = `C:\Temp\temp.txt`
 

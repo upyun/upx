@@ -3,10 +3,10 @@ package main
 import (
 	"testing"
 	"log"
-	"io/ioutil"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"path"
+	"io/ioutil"
 )
 
 func mvFile(t *testing.T, oldPath string, newPath string) {
@@ -15,6 +15,7 @@ func mvFile(t *testing.T, oldPath string, newPath string) {
 	Nil(t, err)
 
 }
+
 func TestMv(t *testing.T) {
 	//tpath, _ := os.Getwd()
 	//testdir := filepath.Join(tpath, "test-get")
@@ -38,7 +39,6 @@ func TestMv(t *testing.T) {
 	// upx put localBase/FILE upBase/FILE
 	getwd, err := os.Getwd()
 	if err != nil {
-		//gJa32fwtWPtsgfeBxQ0kROeWfofaYPOJ
 		return
 	}
 	t.Log("local:", getwd)
