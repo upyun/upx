@@ -18,6 +18,7 @@ import (
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
 	"github.com/upyun/go-sdk/v3/upyun"
+	"log"
 )
 
 const (
@@ -996,13 +997,15 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 	}
 
 	//判断目的目录是否存在
+	Id, ie := sess.IsLocalDir(conf.DestPath)
+	log.Println(Id, ie)
 	conf.DestPath = sess.AbsPath(conf.DestPath)
 	isDir, exist := sess.IsUpYunDir(conf.DestPath)
-	if !isDir {
-		PrintErrorAndExit("%s is not a dir", conf.DestPath)
-	}
+	//if !isDir {
+	//	PrintErrorAndExit("%s is not a dir", conf.DestPath)
+	//}
 	//如果目的目录不存在，则创建
-	if !exist {
+	if !isDir && !exist {
 		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
 			PrintErrorAndExit("mkdir file error = %s", err)
 		}
@@ -1052,11 +1055,8 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 	//判断目的目录是否存在
 	conf.DestPath = sess.AbsPath(conf.DestPath)
 	isDir, exist := sess.IsUpYunDir(conf.DestPath)
-	if !isDir {
-		PrintErrorAndExit("%s is not a dir", conf.DestPath)
-	}
 	//如果目的目录不存在，则创建
-	if !exist {
+	if !isDir && !exist {
 		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
 			PrintErrorAndExit("mkdir file error = %s", err)
 		}
