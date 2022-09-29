@@ -29,9 +29,24 @@ func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string)
 	Nil(t, err)
 }
 
+/*
+测试目录					test1:start=123 end=999    test2:start=111 end=666
+input:						local:					  local:
+	|-- 111						├── 333					  ├── 111
+	|-- 333						├── 666					  ├── 333
+	|-- 777						│ ├── 111				  └── 444
+	|-- 444						│ ├── 333				      └── 666
+	!   `-- 666					│ ├── 666
+	`-- 666						│ └── 777
+		|-- 111					└── 777
+		|-- 333
+		|-- 666
+    	`-- 777
+*/
 func TestGetStartBetweenEndFiles(t *testing.T) {
-	tpath, _ := os.Getwd()
-	base := ROOT + "/get/"
+	nowpath, _ := os.Getwd()
+	root := strings.Join(strings.Split(ROOT, " "), "-")
+	base := root + "/get/"
 	pwd, err := ioutil.TempDir("", "test")
 	Nil(t, err)
 	localBase := filepath.Join(pwd, "get")
@@ -59,6 +74,7 @@ func TestGetStartBetweenEndFiles(t *testing.T) {
 		dst     string
 		correct string
 	}
+	//构造测试目录
 	files := uploadFiles{
 		{name: "111", file: filepath.Join(localBase, "111"), dst: "", correct: filepath.Join(base, "111")},
 		{name: "333", file: filepath.Join(localBase, "333"), dst: "", correct: path.Join(base, "333")},
@@ -89,10 +105,10 @@ func TestGetStartBetweenEndFiles(t *testing.T) {
 		real  []string
 		want  []string
 	}
-
+	//构造测试
 	tests := []test{
-		{input: list{start: "123", end: "999", testDir: filepath.Join(tpath, "test1")}, real: localFile("test1", base), want: upFile(t, base, "123", "999")},
-		{input: list{start: "0", end: "999", testDir: filepath.Join(tpath, "test2")}, real: localFile("test2", base), want: upFile(t, base, "444", "666")},
+		{input: list{start: "123", end: "999", testDir: filepath.Join(nowpath, "test1")}, real: localFile("test1", base), want: upFile(t, base, "123", "999")},
+		{input: list{start: "111", end: "666", testDir: filepath.Join(nowpath, "test2")}, real: localFile("test2", base), want: upFile(t, base, "444", "666")},
 	}
 	for _, tc := range tests {
 		input := tc.input
@@ -115,12 +131,14 @@ func TestGetStartBetweenEndFiles(t *testing.T) {
 	}
 }
 
+//递归获取下载到本地的文件
 func localFile(local, up string) []string {
 	var locals []string
 	localLen := len(local)
 	fInfos, _ := ioutil.ReadDir(local + "/")
 	for _, fInfo := range fInfos {
 		fp := filepath.Join(local, fInfo.Name())
+		//使用云存储目录作为前缀方便比较
 		locals = append(locals, up[:len(up)-1]+fp[localLen:])
 		if IsDir(fp) {
 			localFile(fp, up)
@@ -129,6 +147,7 @@ func localFile(local, up string) []string {
 	return locals
 }
 
+//递归获取云存储目录文件
 func upFile(t *testing.T, up, start, end string) []string {
 	b, err := Upx("ls", up)
 	Nil(t, err)
@@ -138,18 +157,19 @@ func upFile(t *testing.T, up, start, end string) []string {
 	for _, line := range strings.Split(output, "\n") {
 		items := strings.Split(line, " ")
 		fp := filepath.Join(up, items[len(items)-1])
-		if fp >= start && fp < end {
-			ups = append(ups, fp)
-			if items[0][0] == 'd' {
-				upFile(t, fp, start, end)
-			}
-		} else if strings.HasPrefix(start, fp) {
-			if items[0][0] == 'd' {
-				upFile(t, fp, start, end)
-			}
+		ups = append(ups, fp)
+		if items[0][0] == 'd' {
+			upFile(t, fp, start, end)
 		}
 	}
-	return ups
+
+	var upfiles []string
+	for _, file := range ups {
+		if file >= start && file < end {
+			upfiles = append(upfiles, file)
+		}
+	}
+	return upfiles
 }
 
 func IsDir(path string) bool {
@@ -158,8 +178,8 @@ func IsDir(path string) bool {
 
 		return false
 	}
-	return s.IsDir()
 
+	return s.IsDir()
 }
 
 func AbsPath(upPath string) (ret string) {
