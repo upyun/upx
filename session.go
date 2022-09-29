@@ -1095,6 +1095,10 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 var TempPath = `C:\Temp\temp.txt`
 
 func (sess *Session) ResumePut(src, dst string) {
+	_, err := os.OpenFile(src, os.O_WRONLY, 0666)
+	if err != nil {
+		PrintErrorAndExit("file %s may not exist", src)
+	}
 	point, err := sess.updriver.ResumePut(&upyun.PutObjectConfig{
 		Path:            dst,
 		LocalPath:       src,
