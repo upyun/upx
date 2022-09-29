@@ -10,12 +10,14 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/howeyc/gopass"
+	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/urfave/cli"
 )
 
 const (
 	NO_CHECK = false
 	CHECK    = true
+	FORCE    = 1
 )
 
 func Init(login bool) {
@@ -476,6 +478,77 @@ func NewUpgradeCommand() cli.Command {
 		Usage: "upgrade upx to latest version",
 		Action: func(c *cli.Context) error {
 			Upgrade()
+			return nil
+		},
+	}
+}
+
+//todo
+func NewMvCommand() cli.Command { //文件移动到目录下
+	return cli.Command{
+		Name:  "mv",
+		Usage: "move file",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			srcpath := c.Args().First() //获得第一个参数文件 src 地址
+			dstpath := c.Args().Get(1)  //获得第二个参数文件 dst 地址
+
+			var isFore int
+			if c.Bool("f") { //强制覆盖
+				isFore = FORCE
+			}
+
+			session.Mv(isFore, &upyun.MoveObjectConfig{
+				SrcPath:  srcpath,
+				DestPath: dstpath,
+			}) //处理移动的逻辑
+
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "f", Usage: "move the file force"},
+		},
+	}
+}
+
+func NewCpCommand() cli.Command {
+	return cli.Command{
+		Name:  "cp",
+		Usage: "copy file",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			srcpath := c.Args().First()
+			dstpath := c.Args().Get(1)
+
+			var flag int
+			if c.Bool("f") {
+				flag = FORCE
+			}
+
+			session.Cp(flag, &upyun.CopyObjectConfig{
+				SrcPath:  srcpath,
+				DestPath: dstpath,
+			}) //移动逻辑
+
+			return nil
+
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "f", Usage: "copy file force"},
+		},
+	}
+}
+
+func NewResumePutCommand() cli.Command {
+	return cli.Command{
+		Name:  "resume-put",
+		Usage: "ResumePut file and save information",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			src := c.Args().First()
+			dst := c.Args().Get(1)
+
+			session.ResumePut(src, dst) //信息处理逻辑
 			return nil
 		},
 	}

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"bufio"
 	"github.com/fatih/color"
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
@@ -974,4 +975,171 @@ func (sess *Session) Purge(urls []string, file string) {
 	if err != nil {
 		PrintErrorAndExit("purge error: %v", err)
 	}
+}
+
+func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
+	//输入的地址为空
+	if len(conf.SrcPath) == 0 || len(conf.DestPath) == 0 {
+		PrintErrorAndExit("File source or destination is not null")
+	}
+
+	//判断移动的文件是绝对路径还是相对路径
+	sDir, srcFname := path.Split(conf.SrcPath)
+	//相对路径加上当前路径
+	if len(sDir) == 0 {
+		conf.SrcPath = path.Join(sess.CWD, conf.SrcPath)
+	}
+
+	//判断移动后的文件是否有需要重新命名
+	dir, fname := path.Split(conf.DestPath)
+	if len(dir) == 0 {
+		conf.DestPath = path.Join(fname, srcFname)
+		dir = fname
+	} else if len(fname) == 0 { //  a/
+		conf.DestPath = path.Join(dir, srcFname)
+	}
+
+	//判断目的目录是否存在
+	_, exist := sess.IsUpYunDir(dir)
+	//判断要移动的文件是否存在
+	_, err := sess.updriver.GetInfo(conf.SrcPath)
+	if err != nil {
+		PrintErrorAndExit("File %s not found", conf.SrcPath)
+	}
+
+	//判断目的地址是否存在这个文件
+	_, err = sess.updriver.GetInfo(conf.DestPath)
+	//文件存在不覆盖
+	if flag == 0 && err == nil {
+		PrintErrorAndExit("File %s is exist", conf.DestPath)
+	}
+
+	//如果目的目录不存在，则创建
+	if !exist {
+		if err := sess.updriver.Mkdir(dir); err != nil {
+			PrintErrorAndExit("mkdir file error = %s", err)
+		}
+	}
+
+	//移动
+	err = sess.updriver.Move(conf)
+
+	if err != nil {
+		PrintErrorAndExit("MOVE file %s failed", conf.SrcPath)
+	} else {
+		PrintOnlyVerbose("MOVE %s OK", conf.SrcPath)
+		return
+	}
+}
+
+func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
+	//输入的地址为空
+	if len(conf.SrcPath) == 0 || len(conf.DestPath) == 0 {
+		Print("File source or destination is not null")
+		return
+	}
+
+	//判断移动的文件是绝对路径还是相对路径
+	sDir, srcFname := path.Split(conf.SrcPath)
+	//相对路径加上当前路径
+	if len(sDir) == 0 {
+		conf.SrcPath = path.Join(sess.CWD, conf.SrcPath)
+	}
+
+	//判断移动后的文件是否有需要重新命名
+	dir, fname := path.Split(conf.DestPath)
+	if len(dir) == 0 {
+		conf.DestPath = path.Join(fname, srcFname)
+		dir = fname
+	} else if len(fname) == 0 { //  a/
+		conf.DestPath = path.Join(dir, srcFname)
+	}
+
+	//目的文件的所在目录
+	Path := path.Dir(conf.DestPath)
+	//目的目录是否存在
+	_, exist := sess.IsUpYunDir(Path)
+	//要复制的文件是否存在
+	_, err := sess.updriver.GetInfo(conf.SrcPath)
+	if err != nil {
+		PrintOnlyVerbose("File %s not found", conf.SrcPath)
+		return
+	}
+
+	_, err = sess.updriver.GetInfo(conf.DestPath)
+	//文件存在不覆盖
+	if flag == 0 && err == nil {
+		PrintErrorAndExit("File %s is exist", conf.DestPath)
+	}
+	//如果目的目录不存在，则创建
+	if !exist {
+		if err := sess.updriver.Mkdir(Path); err != nil {
+			PrintErrorAndExit("mkdir file error = %s", err)
+		}
+	}
+
+	//移动
+	err = sess.updriver.Copy(conf)
+	if err != nil {
+		PrintErrorAndExit("COPY file %s failed", conf.SrcPath)
+	} else {
+		PrintOnlyVerbose("COPY file %s OK", conf.SrcPath)
+		return
+	}
+
+}
+
+// ResumePut upx 命令行实现续传临时信息保存和清理命令 resumeput
+//1. 默认清除所有的信息
+
+var TempPath = `C:\Temp\temp.txt`
+
+func (sess *Session) ResumePut(src, dst string) {
+	point, err := sess.updriver.ResumePut(&upyun.PutObjectConfig{
+		Path:            dst,
+		LocalPath:       src,
+		UseMD5:          true,
+		UseResumeUpload: true,
+	}, nil)
+
+	//没有错误直接退出
+	if err == nil {
+		PrintOnlyVerbose("ResumePut file %s to %s successfully", src, dst)
+		return
+	}
+
+	//上传失败，保存信息
+	data, err := json.Marshal(point)
+	if err != nil {
+		Print("marshal data failed")
+		return
+	}
+
+	file, err := os.OpenFile(TempPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	defer file.Close()
+	if err != nil {
+		PrintErrorAndExit("open file %s failed", TempPath)
+	}
+
+	write := bufio.NewWriter(file)
+	_, err = write.WriteString(time.Now().Format("2006-01-02-15-04"))
+	if err != nil {
+		PrintErrorAndExit("write string error, error= %s", err)
+		return
+	}
+	_, err = write.Write(data)
+	if err != nil {
+		PrintErrorAndExit("write data to file error, error= %s", err)
+		return
+	}
+	_, err = write.WriteString("\n")
+	if err != nil {
+		PrintErrorAndExit("write string error, error= %s", err)
+		return
+	}
+	if err = write.Flush(); err != nil {
+		PrintErrorAndExit("write flush error, error= %s", err)
+	}
+
+	PrintErrorAndExit("ResumePut file %s to %s fail", src, dst)
 }

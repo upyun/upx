@@ -1,6 +1,7 @@
-module github.com/upyun/upx
+module upx
 
 go 1.17
+
 
 require (
 	github.com/fatih/color v1.9.0
@@ -25,3 +26,5 @@ require (
 	golang.org/x/sys v0.0.0-20220927170352-d9d178bc13c6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/upyun/go-sdk/v3 => github.com/HaiBinHe/go-sdk/v3 v3.0.0-20220928095227-beaae8e0c824
