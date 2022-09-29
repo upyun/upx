@@ -997,7 +997,10 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 
 	//判断目的目录是否存在
 	conf.DestPath = sess.AbsPath(conf.DestPath)
-	_, exist := sess.IsUpYunDir(conf.DestPath)
+	isDir, exist := sess.IsUpYunDir(conf.DestPath)
+	if !isDir {
+		PrintErrorAndExit("%s is not a dir", conf.DestPath)
+	}
 	//如果目的目录不存在，则创建
 	if !exist {
 		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
@@ -1014,7 +1017,7 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 	//判断目的地址是否存在这个文件
 	_, err = sess.updriver.GetInfo(conf.DestPath)
 	//文件存在不覆盖
-	if flag == 0 && err == nil {
+	if flag == NOT && err == nil {
 		PrintErrorAndExit("File %s is exist", conf.DestPath)
 	}
 
@@ -1048,7 +1051,10 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 
 	//判断目的目录是否存在
 	conf.DestPath = sess.AbsPath(conf.DestPath)
-	_, exist := sess.IsUpYunDir(conf.DestPath)
+	isDir, exist := sess.IsUpYunDir(conf.DestPath)
+	if !isDir {
+		PrintErrorAndExit("%s is not a dir", conf.DestPath)
+	}
 	//如果目的目录不存在，则创建
 	if !exist {
 		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
@@ -1081,7 +1087,7 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 // ResumePut upx 命令行实现续传临时信息保存和清理命令 resume-put
 //错误时输出结构体信息
 
-var TempPath = `C:\Temp\temp.txt`
+var TempPath = `upyun-resume-recoder.txt`
 
 func (sess *Session) ResumePut(src, dst string) {
 	_, err := os.OpenFile(src, os.O_WRONLY, 0666)
@@ -1098,7 +1104,7 @@ func (sess *Session) ResumePut(src, dst string) {
 	//没有错误直接退出
 	if err == nil {
 		PrintOnlyVerbose("ResumePut file %s to %s successfully", src, dst)
-		return
+		os.Exit(1)
 	}
 
 	//上传失败，保存信息
@@ -1107,6 +1113,8 @@ func (sess *Session) ResumePut(src, dst string) {
 		Print("marshal data failed")
 		return
 	}
+	//生成临时文件
+	TempPath = path.Join(os.TempDir(), TempPath)
 
 	file, err := os.OpenFile(TempPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	defer file.Close()

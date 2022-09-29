@@ -18,6 +18,7 @@ const (
 	NO_CHECK = false
 	CHECK    = true
 	FORCE    = 1
+	NOT      = 0
 )
 
 func Init(login bool) {
