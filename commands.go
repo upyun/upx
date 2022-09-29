@@ -270,19 +270,30 @@ func NewGetCommand() cli.Command {
 			if strings.Contains(base, "*") {
 				mc.Wildcard, upPath = base, dir
 			}
+			if c.String("start") != "" {
+				mc.Start = c.String("start")
+			}
+			if c.String("end") != "" {
+				mc.End = c.String("end")
+			}
 			if c.String("mtime") != "" {
 				err := parseMTime(c.String("mtime"), mc)
 				if err != nil {
 					PrintErrorAndExit("get %s: parse mtime: %v", upPath, err)
 				}
 			}
-			session.Get(upPath, localPath, mc, c.Int("w"))
-
+			if mc.Start != "" || mc.End != "" {
+				session.GetStartBetweenEndFiles(upPath, localPath, mc, c.Int("w"))
+			} else {
+				session.Get(upPath, localPath, mc, c.Int("w"))
+			}
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+			cli.StringFlag{Name: "start", Usage: "file download range starting location"},
+			cli.StringFlag{Name: "end", Usage: "file download range ending location"},
 		},
 	}
 }

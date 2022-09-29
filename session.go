@@ -396,6 +396,61 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 	}
 }
 
+func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *MatchConfig, workers int) {
+	fpath := sess.AbsPath(upPath)
+	isDir, exist := sess.IsUpYunDir(fpath)
+	if !exist {
+		if match.ItemType == DIR {
+			isDir = true
+		} else {
+			PrintErrorAndExit("get: cannot down %s:No such file or directory", fpath)
+		}
+	}
+	if isDir && match != nil && match.Wildcard == "" {
+		if match.ItemType == FILE {
+			PrintErrorAndExit("get: cannot down %s: Is a directory", fpath)
+		}
+	}
+
+	fInfoChan := make(chan *upyun.FileInfo, 1)
+	objectsConfig := &upyun.GetObjectsConfig{
+		Path:        fpath,
+		ObjectsChan: fInfoChan,
+		QuitChan:    make(chan bool, 1),
+	}
+	go func() {
+		err := sess.updriver.List(objectsConfig)
+		if err != nil {
+			PrintErrorAndExit("ls %s: %v", fpath, err)
+		}
+	}()
+
+	startList := match.Start
+	if startList != "" && startList[0] != '/' {
+		startList = filepath.Join(fpath, startList)
+	}
+	endList := match.End
+	if endList != "" && endList[0] != '/' {
+		endList = filepath.Join(fpath, endList)
+	}
+
+	for fInfo := range fInfoChan {
+		fp := filepath.Join(fpath, fInfo.Name)
+		if (fp >= startList || startList == "") && (fp < endList || endList == "") {
+			sess.Get(fp, localPath, match, workers)
+		} else if strings.HasPrefix(startList, fp) {
+			//前缀相同进入下一级文件夹，继续递归判断
+			if fInfo.IsDir {
+				sess.GetStartBetweenEndFiles(fp, localPath+fInfo.Name+"/", match, workers)
+			}
+		}
+		if fp >= endList && endList != "" && fInfo.IsDir {
+			close(objectsConfig.QuitChan)
+			break
+		}
+	}
+}
+
 func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, localInfo os.FileInfo) (int, error) {
 	var err error
 	bar, idx := AddBar(barId, int(localInfo.Size()))
