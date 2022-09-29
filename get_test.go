@@ -14,6 +14,7 @@ import (
 func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string) {
 	var err error
 	src = AbsPath(src)
+
 	if start != "" && start[0] != '/' {
 		start = filepath.Join(src, start)
 	}
@@ -25,16 +26,12 @@ func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string)
 	} else {
 		_, err = Upx("get", src, dst, "--start="+start, "--end="+end)
 	}
-	compareGet(t, src, correct, start, end)
 	Nil(t, err)
 }
 
-func TestGet(t *testing.T) {
+func TestGetStartBetweenEndFiles(t *testing.T) {
 	tpath, _ := os.Getwd()
-	testdir := filepath.Join(tpath, "test-get")
 	base := ROOT + "/get/"
-	start := base + "FILE"
-	end := base + "putfile"
 	pwd, err := ioutil.TempDir("", "test")
 	Nil(t, err)
 	localBase := filepath.Join(pwd, "get")
@@ -51,86 +48,108 @@ func TestGet(t *testing.T) {
 	Upx("mkdir", base)
 	Upx("cd", base)
 
-	// upx put localBase/FILE upBase/FILE
-	CreateFile("FILE")
-	putFile(t, filepath.Join(localBase, "FILE"), "", path.Join(base, "FILE"))
+	type uploadFiles []struct {
+		name    string
+		file    string
+		dst     string
+		correct string
+	}
+	type uploadDirs []struct {
+		dir     string
+		dst     string
+		correct string
+	}
+	files := uploadFiles{
+		{name: "111", file: filepath.Join(localBase, "111"), dst: "", correct: filepath.Join(base, "111")},
+		{name: "333", file: filepath.Join(localBase, "333"), dst: "", correct: path.Join(base, "333")},
+		{name: "333", file: "333", dst: path.Join(base, "333"), correct: path.Join(base, "333")},
+		{name: "777", file: "777", dst: base, correct: path.Join(base, "777")},
+		{name: "666", file: "666", dst: base + "/444/", correct: path.Join(base, "444", "666")},
+	}
+	for _, file := range files {
+		CreateFile(file.name)
+		putFile(t, file.file, file.dst, file.correct)
+	}
+	log.Println(122)
 
-	// upx put ../put/FILE2
-	CreateFile("FILE2")
-	localPath := filepath.Join(localBase, "FILE2")
-	putFile(t, localPath, "", path.Join(base, "FILE2"))
-
-	// upx put /path/to/file /path/to/file
-	putFile(t, "FILE", path.Join(base, "FILE4"), path.Join(base, "FILE4"))
-
-	// upx put /path/to/file /path/to/dir
-	CreateFile("FILE3")
-	putFile(t, "FILE3", base, path.Join(base, "FILE3"))
-
-	// upx put /path/to/file ../path/to/dir/
-	putFile(t, "FILE", base+"/putfile/", path.Join(base, "putfile", "FILE"))
-
-	// upx put /path/to/dir /path/to/dir/
-	putDir(t, localBase, base+"/putdir/", base+"/putdir/")
-	_, err = Upx("put", localBase, path.Join(base, "FILE"))
-	NotNil(t, err)
-	err = os.MkdirAll(testdir, os.ModePerm)
-	if err != nil {
-		log.Println(err)
+	dirs := uploadDirs{
+		{dir: localBase, dst: base + "/666/", correct: base + "/666/"},
+	}
+	for _, dir := range dirs {
+		putDir(t, dir.dir, dir.dst, dir.correct)
 	}
 
-	GetStartBetweenEndFiles(t, base, testdir, testdir, start, end)
+	type list struct {
+		start   string
+		end     string
+		testDir string
+	}
+	type test struct {
+		input list
+		real  []string
+		want  []string
+	}
+
+	tests := []test{
+		{input: list{start: "123", end: "999", testDir: filepath.Join(tpath, "test1")}, real: localFile("test1", base), want: upFile(t, base, "123", "999")},
+		{input: list{start: "0", end: "999", testDir: filepath.Join(tpath, "test2")}, real: localFile("test2", base), want: upFile(t, base, "444", "666")},
+	}
+	for _, tc := range tests {
+		input := tc.input
+
+		err = os.MkdirAll(input.testDir, os.ModePerm)
+		if err != nil {
+			log.Println(err)
+		}
+
+		GetStartBetweenEndFiles(t, base, input.testDir, input.testDir, input.start, input.end)
+
+		sort.Strings(tc.real)
+		sort.Strings(tc.want)
+		Equal(t, len(tc.real), len(tc.want))
+
+		for i := 0; i < len(tc.real); i++ {
+			log.Println("compare:", tc.real[i], " ", tc.want[i])
+			Equal(t, tc.real[i], tc.want[i])
+		}
+	}
 }
 
-func compareGet(t *testing.T, up, local, start, end string) {
-	locals := []string{}
-	ups := []string{}
+func localFile(local, up string) []string {
+	var locals []string
+	localLen := len(local)
+	fInfos, _ := ioutil.ReadDir(local + "/")
+	for _, fInfo := range fInfos {
+		fp := filepath.Join(local, fInfo.Name())
+		locals = append(locals, up[:len(up)-1]+fp[localLen:])
+		if IsDir(fp) {
+			localFile(fp, up)
+		}
+	}
+	return locals
+}
 
-	lpath := local
-	var localPath func(up string)
-	localPath = func(local string) {
-		fInfos, _ := ioutil.ReadDir(local + "/")
-		for _, fInfo := range fInfos {
-			fp := filepath.Join(local, fInfo.Name())
-			locals = append(locals, up[:len(up)-1]+fp[len(lpath):])
-			if IsDir(fp) {
-				localPath(fp)
+func upFile(t *testing.T, up, start, end string) []string {
+	b, err := Upx("ls", up)
+	Nil(t, err)
+
+	var ups []string
+	output := strings.TrimRight(string(b), "\n")
+	for _, line := range strings.Split(output, "\n") {
+		items := strings.Split(line, " ")
+		fp := filepath.Join(up, items[len(items)-1])
+		if fp >= start && fp < end {
+			ups = append(ups, fp)
+			if items[0][0] == 'd' {
+				upFile(t, fp, start, end)
+			}
+		} else if strings.HasPrefix(start, fp) {
+			if items[0][0] == 'd' {
+				upFile(t, fp, start, end)
 			}
 		}
 	}
-	localPath(lpath)
-
-	var upPath func(up string)
-	upPath = func(up string) {
-		//log.Println("upPath:", up)
-		b, err := Upx("ls", up)
-		Nil(t, err)
-		output := strings.TrimRight(string(b), "\n")
-		for _, line := range strings.Split(output, "\n") {
-			//log.Println(line)
-			items := strings.Split(line, " ")
-			fp := filepath.Join(up, items[len(items)-1])
-			if fp >= start && fp < end {
-				ups = append(ups, fp)
-				if items[0][0] == 'd' {
-					upPath(fp)
-				}
-			} else if strings.HasPrefix(start, fp) {
-				if items[0][0] == 'd' {
-					upPath(fp)
-				}
-			}
-		}
-	}
-	upPath(up)
-
-	sort.Strings(locals)
-	sort.Strings(ups)
-	Equal(t, len(locals), len(ups))
-	for i := 0; i < len(locals); i++ {
-		log.Println("compare:", locals[i], " ", ups[i])
-		Equal(t, locals[i], ups[i])
-	}
+	return ups
 }
 
 func IsDir(path string) bool {
