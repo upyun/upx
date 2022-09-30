@@ -1,17 +1,14 @@
 package main
 
 import (
-	"testing"
 	"io/ioutil"
-	"path/filepath"
 	"os"
 	"path"
+	"path/filepath"
+	"testing"
 )
 
 func TestCp(t *testing.T) {
-	//tpath, _ := os.Getwd()
-	//testdir := filepath.Join(tpath, "test-get")
-
 	base := ROOT + "/cp/"
 	pwd, err := ioutil.TempDir("", "test")
 	Nil(t, err)
@@ -22,22 +19,23 @@ func TestCp(t *testing.T) {
 		err = os.MkdirAll(localBase+"/test", 0755)
 		Nil(t, err)
 	}()
-	defer TearDown()
+
+	defer func() {
+		TearDown()
+	}()
 
 	err = os.Chdir(localBase)
-	Nil(t, err)
+	//Nil(t, err)
 	Upx("mkdir", base)
-	Upx("cd", base)
+	Upx("cp", base)
 	// upx put localBase/FILE upBase/FILE
 	getwd, err := os.Getwd()
 	if err != nil {
 		return
 	}
+
 	t.Log("local:", getwd)
 	t.Log("localbase:", localBase)
-
-	// upx put /path/to/dir /path/to/dir/
-
 	putDir(t, localBase, base+"/putdir/", base+"/putdir/")
 	CreateFile("FILE")
 	oldPath := filepath.Join(base, "FILE")
@@ -45,5 +43,7 @@ func TestCp(t *testing.T) {
 	newPath := base + "putdir/"
 	t.Log("dir", localBase+"test", base)
 	t.Log(oldPath, newPath)
-	mvFile(t, oldPath, newPath)
+	t.Log(oldPath, newPath)
+	_, err = Upx("cp", oldPath, newPath)
+	Nil(t, err)
 }

@@ -13,12 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"bufio"
 	"github.com/fatih/color"
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
 	"github.com/upyun/go-sdk/v3/upyun"
-	"log"
 )
 
 const (
@@ -984,9 +982,6 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		PrintErrorAndExit("File source or destination is not null")
 	}
 
-	var fileName string
-	conf.DestPath, fileName = path.Split(conf.DestPath)
-
 	//判断移动的文件是绝对路径还是相对路径
 	upPath, file := path.Split(conf.SrcPath)
 	conf.SrcPath = path.Join(sess.AbsPath(upPath), file)
@@ -996,31 +991,31 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		PrintErrorAndExit("File %s not found", conf.SrcPath)
 	}
 
+	dstPath, fileName := path.Split(conf.DestPath)
 	//判断目的目录是否存在
-	Id, ie := sess.IsLocalDir(conf.DestPath)
-	log.Println(Id, ie)
-	conf.DestPath = sess.AbsPath(conf.DestPath)
-	isDir, exist := sess.IsUpYunDir(conf.DestPath)
-	//if !isDir {
-	//	PrintErrorAndExit("%s is not a dir", conf.DestPath)
-	//}
+	dstPath = sess.AbsPath(dstPath)
+	isDir, exist := sess.IsUpYunDir(dstPath)
+
 	//如果目的目录不存在，则创建
-	if !isDir && !exist {
-		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
+	if !exist || !isDir {
+		if err := sess.updriver.Mkdir(dstPath); err != nil {
 			PrintErrorAndExit("mkdir file error = %s", err)
 		}
 	}
 	//判断输入的目的目录是一个目录还是目录加重命名的文件名
 	if len(fileName) == 0 { //不重命名
-		conf.DestPath = path.Join(conf.DestPath, file)
+		conf.DestPath = path.Join(dstPath, file)
 	} else {
-		conf.DestPath = path.Join(conf.DestPath, fileName)
+		conf.DestPath = path.Join(dstPath, fileName)
 	}
 
 	//判断目的地址是否存在这个文件
 	_, err = sess.updriver.GetInfo(conf.DestPath)
+	if err != nil {
+		PrintErrorAndExit("get path info error = %s", err)
+	}
 	//文件存在不覆盖
-	if flag == NOT && err == nil {
+	if err == nil && flag == NOT {
 		PrintErrorAndExit("File %s is exist", conf.DestPath)
 	}
 
@@ -1033,15 +1028,11 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		return
 	}
 }
-
 func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 	//输入的地址为空
 	if len(conf.SrcPath) == 0 || len(conf.DestPath) == 0 {
 		PrintErrorAndExit("File source or destination is not null")
 	}
-
-	var fileName string
-	conf.DestPath, fileName = path.Split(conf.DestPath)
 
 	//判断移动的文件是绝对路径还是相对路径
 	upPath, file := path.Split(conf.SrcPath)
@@ -1052,95 +1043,40 @@ func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 		PrintErrorAndExit("File %s not found", conf.SrcPath)
 	}
 
+	dstPath, fileName := path.Split(conf.DestPath)
 	//判断目的目录是否存在
-	conf.DestPath = sess.AbsPath(conf.DestPath)
-	isDir, exist := sess.IsUpYunDir(conf.DestPath)
+	dstPath = sess.AbsPath(dstPath)
+	isDir, exist := sess.IsUpYunDir(dstPath)
+
 	//如果目的目录不存在，则创建
-	if !isDir && !exist {
-		if err := sess.updriver.Mkdir(conf.DestPath); err != nil {
+	if !exist || !isDir {
+		if err := sess.updriver.Mkdir(dstPath); err != nil {
 			PrintErrorAndExit("mkdir file error = %s", err)
 		}
 	}
 	//判断输入的目的目录是一个目录还是目录加重命名的文件名
 	if len(fileName) == 0 { //不重命名
-		conf.DestPath = path.Join(conf.DestPath, file)
+		conf.DestPath = path.Join(dstPath, file)
 	} else {
-		conf.DestPath = path.Join(conf.DestPath, fileName)
+		conf.DestPath = path.Join(dstPath, fileName)
 	}
+
 	//判断目的地址是否存在这个文件
 	_, err = sess.updriver.GetInfo(conf.DestPath)
+	if err != nil {
+		PrintErrorAndExit("get path info error = %s", err)
+	}
 	//文件存在不覆盖
-	if flag == 0 && err == nil {
+	if err == nil && flag == NOT {
 		PrintErrorAndExit("File %s is exist", conf.DestPath)
 	}
 
 	//移动
 	err = sess.updriver.Copy(conf)
 	if err != nil {
-		PrintErrorAndExit("COPY file %s failed", conf.SrcPath)
+		PrintErrorAndExit("MOVE file %s failed", conf.SrcPath)
 	} else {
-		PrintOnlyVerbose("COPY %s OK", conf.SrcPath)
+		PrintOnlyVerbose("MOVE %s OK", conf.SrcPath)
 		return
 	}
-}
-
-// ResumePut upx 命令行实现续传临时信息保存和清理命令 resume-put
-//错误时输出结构体信息
-
-var TempPath = `upyun-resume-recoder.txt`
-
-func (sess *Session) ResumePut(src, dst string) {
-	_, err := os.OpenFile(src, os.O_WRONLY, 0666)
-	if err != nil {
-		PrintErrorAndExit("file %s may not exist", src)
-	}
-	point, err := sess.updriver.ResumePut(&upyun.PutObjectConfig{
-		Path:            dst,
-		LocalPath:       src,
-		UseMD5:          true,
-		UseResumeUpload: true,
-	}, nil)
-
-	//没有错误直接退出
-	if err == nil {
-		PrintOnlyVerbose("ResumePut file %s to %s successfully", src, dst)
-		os.Exit(1)
-	}
-
-	//上传失败，保存信息
-	data, err := json.Marshal(point)
-	if err != nil {
-		Print("marshal data failed")
-		return
-	}
-	//生成临时文件
-	TempPath = path.Join(os.TempDir(), TempPath)
-
-	file, err := os.OpenFile(TempPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	defer file.Close()
-	if err != nil {
-		PrintErrorAndExit("open file %s failed", TempPath)
-	}
-
-	write := bufio.NewWriter(file)
-	_, err = write.WriteString(time.Now().Format("2006-01-02-15-04"))
-	if err != nil {
-		PrintErrorAndExit("write string error, error= %s", err)
-		return
-	}
-	_, err = write.Write(data)
-	if err != nil {
-		PrintErrorAndExit("write data to file error, error= %s", err)
-		return
-	}
-	_, err = write.WriteString("\n")
-	if err != nil {
-		PrintErrorAndExit("write string error, error= %s", err)
-		return
-	}
-	if err = write.Flush(); err != nil {
-		PrintErrorAndExit("write flush error, error= %s", err)
-	}
-
-	PrintErrorAndExit("ResumePut file %s to %s fail", src, dst)
 }

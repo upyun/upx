@@ -1,25 +1,21 @@
 package main
 
 import (
-	"testing"
-	"log"
-	"os"
-	"path/filepath"
-	"path"
 	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
+	"testing"
 )
 
 func mvFile(t *testing.T, oldPath string, newPath string) {
-	log.Println(oldPath, newPath)
+	t.Log(oldPath, newPath)
 	_, err := Upx("mv", oldPath, newPath)
 	Nil(t, err)
 
 }
 
 func TestMv(t *testing.T) {
-	//tpath, _ := os.Getwd()
-	//testdir := filepath.Join(tpath, "test-get")
-
 	base := ROOT + "/mv/"
 	pwd, err := ioutil.TempDir("", "test")
 	Nil(t, err)
@@ -30,22 +26,23 @@ func TestMv(t *testing.T) {
 		err = os.MkdirAll(localBase+"/test", 0755)
 		Nil(t, err)
 	}()
-	defer TearDown()
+
+	defer func() {
+		TearDown()
+	}()
 
 	err = os.Chdir(localBase)
-	Nil(t, err)
+	//Nil(t, err)
 	Upx("mkdir", base)
-	Upx("cd", base)
+	Upx("mv", base)
 	// upx put localBase/FILE upBase/FILE
 	getwd, err := os.Getwd()
 	if err != nil {
 		return
 	}
+
 	t.Log("local:", getwd)
 	t.Log("localbase:", localBase)
-
-	// upx put /path/to/dir /path/to/dir/
-
 	putDir(t, localBase, base+"/putdir/", base+"/putdir/")
 	CreateFile("FILE")
 	oldPath := filepath.Join(base, "FILE")

@@ -9,7 +9,6 @@ import (
 func TestTree(t *testing.T) {
 	base := ROOT + "/ls"
 	dirs, files := []string{}, []string{}
-
 	func() {
 		SetUp()
 		Upx("mkdir", base)

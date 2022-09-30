@@ -494,7 +494,7 @@ func NewMvCommand() cli.Command { //文件移动到目录下
 			srcpath := c.Args().First() //获得第一个参数文件 src 地址
 			dstpath := c.Args().Get(1)  //获得第二个参数文件 dst 地址
 
-			var isFore int
+			var isFore = NOT
 			if c.Bool("f") { //强制覆盖
 				isFore = FORCE
 			}
@@ -536,21 +536,6 @@ func NewCpCommand() cli.Command {
 		},
 		Flags: []cli.Flag{
 			cli.BoolFlag{Name: "f", Usage: "copy file force"},
-		},
-	}
-}
-
-func NewResumePutCommand() cli.Command {
-	return cli.Command{
-		Name:  "resume-put",
-		Usage: "ResumePut file and save information",
-		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
-			src := c.Args().First()
-			dst := c.Args().Get(1)
-
-			session.ResumePut(src, dst) //信息处理逻辑
-			return nil
 		},
 	}
 }

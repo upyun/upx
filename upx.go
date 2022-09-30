@@ -64,7 +64,6 @@ func main() {
 		NewUpgradeCommand(),
 		NewMvCommand(),
 		NewCpCommand(),
-		NewResumePutCommand(),
 	}
 
 	app.Run(os.Args)
