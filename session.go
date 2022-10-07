@@ -982,101 +982,118 @@ func (sess *Session) Mv(flag int, conf *upyun.MoveObjectConfig) {
 		PrintErrorAndExit("File source or destination is not null")
 	}
 
-	//判断移动的文件是绝对路径还是相对路径
-	upPath, file := path.Split(conf.SrcPath)
-	conf.SrcPath = path.Join(sess.AbsPath(upPath), file)
+	srcPath, file := path.Split(conf.SrcPath)
+	//移动的文件是当前目录下的文件
+	if strings.HasPrefix(srcPath, "./") {
+		srcPath = sess.AbsPath(srcPath)
+	}
+	srcPath = path.Join(srcPath, file)
+
 	//判断要移动的文件是否存在
-	_, err := sess.updriver.GetInfo(conf.SrcPath)
-	if err != nil {
-		PrintErrorAndExit("File %s not found", conf.SrcPath)
+	srcInfo, err := sess.updriver.GetInfo(srcPath)
+	if err != nil || srcInfo == nil {
+		PrintErrorAndExit("File %s not found", srcPath)
 	}
 
+	//是否为当前目录下的文件
 	dstPath, fileName := path.Split(conf.DestPath)
-	//判断目的目录是否存在
-	dstPath = sess.AbsPath(dstPath)
-	isDir, exist := sess.IsUpYunDir(dstPath)
-
-	//如果目的目录不存在，则创建
-	if !exist || !isDir {
-		if err := sess.updriver.Mkdir(dstPath); err != nil {
-			PrintErrorAndExit("mkdir file error = %s", err)
-		}
+	if strings.HasPrefix(dstPath, "./") {
+		dstPath = sess.AbsPath(dstPath)
 	}
+
+	//判断目的目录是否存在
+	fileInfo, _ := sess.updriver.GetInfo(dstPath)
+	if fileInfo == nil {
+		PrintErrorAndExit("file %s is not exist", dstPath)
+	}
+	//不是文件夹
+	if !fileInfo.IsDir {
+		PrintErrorAndExit("file %s is not a directory", dstPath)
+	}
+
 	//判断输入的目的目录是一个目录还是目录加重命名的文件名
 	if len(fileName) == 0 { //不重命名
-		conf.DestPath = path.Join(dstPath, file)
+		dstPath = path.Join(dstPath, file)
 	} else {
-		conf.DestPath = path.Join(dstPath, fileName)
+		dstPath = path.Join(dstPath, fileName)
 	}
 
 	//判断目的地址是否存在这个文件
-	_, err = sess.updriver.GetInfo(conf.DestPath)
-	if err != nil {
-		PrintErrorAndExit("get path info error = %s", err)
-	}
+	dstInfo, _ := sess.updriver.GetInfo(dstPath)
 	//文件存在不覆盖
-	if err == nil && flag == NOT {
-		PrintErrorAndExit("File %s is exist", conf.DestPath)
+	if dstInfo != nil && flag == NOT {
+		PrintErrorAndExit("File %s is exist", dstPath)
 	}
-
+	//重新给处理好的路径赋值
+	conf.DestPath = dstPath
+	conf.SrcPath = srcPath
 	//移动
 	err = sess.updriver.Move(conf)
 	if err != nil {
-		PrintErrorAndExit("MOVE file %s failed", conf.SrcPath)
+		PrintErrorAndExit("MOVE file %s to %s failed", conf.SrcPath, conf.DestPath)
 	} else {
-		PrintOnlyVerbose("MOVE %s OK", conf.SrcPath)
+		PrintOnlyVerbose("MOVE %s to %s OK", conf.SrcPath, conf.DestPath)
 		return
 	}
 }
+
 func (sess *Session) Cp(flag int, conf *upyun.CopyObjectConfig) {
 	//输入的地址为空
 	if len(conf.SrcPath) == 0 || len(conf.DestPath) == 0 {
 		PrintErrorAndExit("File source or destination is not null")
 	}
 
-	//判断移动的文件是绝对路径还是相对路径
-	upPath, file := path.Split(conf.SrcPath)
-	conf.SrcPath = path.Join(sess.AbsPath(upPath), file)
-	//判断要移动的文件是否存在
-	_, err := sess.updriver.GetInfo(conf.SrcPath)
-	if err != nil {
-		PrintErrorAndExit("File %s not found", conf.SrcPath)
+	srcPath, file := path.Split(conf.SrcPath)
+	//复制的文件是当前目录下的文件
+	if strings.HasPrefix(srcPath, "./") {
+		srcPath = sess.AbsPath(srcPath)
+	}
+	srcPath = path.Join(srcPath, file)
+
+	//判断要复制的文件是否存在
+	srcInfo, err := sess.updriver.GetInfo(srcPath)
+	if err != nil || srcInfo == nil {
+		PrintErrorAndExit("File %s not found", srcPath)
 	}
 
+	//是否为当前目录下的文件
 	dstPath, fileName := path.Split(conf.DestPath)
-	//判断目的目录是否存在
-	dstPath = sess.AbsPath(dstPath)
-	isDir, exist := sess.IsUpYunDir(dstPath)
-
-	//如果目的目录不存在，则创建
-	if !exist || !isDir {
-		if err := sess.updriver.Mkdir(dstPath); err != nil {
-			PrintErrorAndExit("mkdir file error = %s", err)
-		}
+	if strings.HasPrefix(dstPath, "./") {
+		dstPath = sess.AbsPath(dstPath)
 	}
+
+	//判断目的目录是否存在
+	fileInfo, _ := sess.updriver.GetInfo(dstPath)
+	if fileInfo == nil {
+		PrintErrorAndExit("file %s is not exist", dstPath)
+	}
+	//不是文件夹
+	if !fileInfo.IsDir {
+		PrintErrorAndExit("file %s is not a directory", dstPath)
+	}
+
 	//判断输入的目的目录是一个目录还是目录加重命名的文件名
 	if len(fileName) == 0 { //不重命名
-		conf.DestPath = path.Join(dstPath, file)
+		dstPath = path.Join(dstPath, file)
 	} else {
-		conf.DestPath = path.Join(dstPath, fileName)
+		dstPath = path.Join(dstPath, fileName)
 	}
 
 	//判断目的地址是否存在这个文件
-	_, err = sess.updriver.GetInfo(conf.DestPath)
-	if err != nil {
-		PrintErrorAndExit("get path info error = %s", err)
-	}
+	dstInfo, _ := sess.updriver.GetInfo(dstPath)
 	//文件存在不覆盖
-	if err == nil && flag == NOT {
-		PrintErrorAndExit("File %s is exist", conf.DestPath)
+	if dstInfo != nil && flag == NOT {
+		PrintErrorAndExit("File %s is exist", dstPath)
 	}
-
-	//移动
+	//重新给处理好的路径赋值
+	conf.DestPath = dstPath
+	conf.SrcPath = srcPath
+	//复制
 	err = sess.updriver.Copy(conf)
 	if err != nil {
-		PrintErrorAndExit("MOVE file %s failed", conf.SrcPath)
+		PrintErrorAndExit("COPY file %s to %s failed", conf.SrcPath, conf.DestPath)
 	} else {
-		PrintOnlyVerbose("MOVE %s OK", conf.SrcPath)
+		PrintOnlyVerbose("COPY %s to %s OK", conf.SrcPath, conf.DestPath)
 		return
 	}
 }

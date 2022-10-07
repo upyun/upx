@@ -484,7 +484,6 @@ func NewUpgradeCommand() cli.Command {
 	}
 }
 
-//todo
 func NewMvCommand() cli.Command { //文件移动到目录下
 	return cli.Command{
 		Name:  "mv",
