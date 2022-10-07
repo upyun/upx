@@ -2,7 +2,6 @@ module upx
 
 go 1.17
 
-
 require (
 	github.com/fatih/color v1.9.0
 	github.com/gosuri/uiprogress v0.0.1

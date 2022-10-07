@@ -62,8 +62,6 @@ func main() {
 		NewGetDBCommand(),
 		NewCleanDBCommand(),
 		NewUpgradeCommand(),
-		NewMvCommand(),
-		NewCpCommand(),
 		NewResumePutCommand(),
 	}
 
