@@ -26,4 +26,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/upyun/go-sdk/v3 => github.com/HaiBinHe/go-sdk/v3 v3.0.0-20220928095227-beaae8e0c824
+replace github.com/upyun/go-sdk/v3 => github.com/HaiBinHe/go-sdk/v3 v3.0.0-20220930133731-c1cd5b1887d7

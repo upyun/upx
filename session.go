@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"bufio"
 	"github.com/fatih/color"
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
@@ -980,57 +979,47 @@ func (sess *Session) Purge(urls []string, file string) {
 // ResumePut upx 命令行实现续传临时信息保存和清理命令 resume-put
 //错误时输出结构体信息
 
-var Temp = `upyun-resume-recoder.txt`
-
 func (sess *Session) ResumePut(src, dst string) {
 	_, err := os.Stat(src)
 	if err != nil {
 		PrintErrorAndExit("file %s may not exist", src)
 	}
-	point, err := sess.updriver.ResumePut(&upyun.PutObjectConfig{
-		Path:            dst,
-		LocalPath:       src,
-		UseMD5:          true,
-		UseResumeUpload: true,
-	}, nil)
 
-	//没有错误直接退出
-	if err == nil {
-		PrintOnlyVerbose("ResumePut file %s to %s successfully", src, dst)
-		os.Exit(1)
-	}
+	recorder := &upyun.ResumeRecorder{}
+	sess.updriver.SetRecorder(recorder)
 
-	//上传失败，保存信息
-	data, err := json.Marshal(point)
-	if err != nil {
-		Print("marshal data failed")
-		return
-	}
-	//生成临时文件
-	TempPath := path.Join(os.TempDir(), time.Now().String(), Temp)
+	var Path string
+	//监控是否失败
+	for {
+		point := recorder.Get()
+		if point != nil {
+			//失败则获取续传信息，续传
+			Path, err = writeInfo(point) //把失败信息写入
+			if err != nil {
+				PrintError("write upload info error")
+				return
+			}
 
-	file, err := os.OpenFile(TempPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	defer file.Close()
-	if err != nil {
-		PrintErrorAndExit("open file %s failed", TempPath)
-	}
+		}
 
-	write := bufio.NewWriter(file)
-	_, err = write.WriteString(time.Now().Format("2006-01-02-15-04"))
-	if err != nil {
-		PrintErrorAndExit("write string error, error= %s", err)
-	}
-	_, err = write.Write(data)
-	if err != nil {
-		PrintErrorAndExit("write data to file error, error= %s", err)
-	}
-	_, err = write.WriteString("\n")
-	if err != nil {
-		PrintErrorAndExit("write string error, error= %s", err)
-	}
-	if err = write.Flush(); err != nil {
-		PrintErrorAndExit("write flush error, error= %s", err)
-	}
+		//上传
+		err = sess.updriver.Put(&upyun.PutObjectConfig{
+			Path:            dst,
+			LocalPath:       src,
+			UseResumeUpload: true,
+		})
 
-	PrintErrorAndExit("ResumePut file %s to %s fail", src, dst) //todo
+		//传输没有出错
+		if err == nil {
+			if point != nil {
+				//delete
+				err = os.Remove(Path)
+				if err != nil {
+					PrintErrorAndExit("delete file %s failed", Path)
+				}
+			}
+			PrintOnlyVerbose("ResumePut file %s to %s successfully", src, dst)
+			os.Exit(1)
+		}
+	}
 }

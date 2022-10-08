@@ -10,6 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/upyun/go-sdk/v3/upyun"
+	"encoding/json"
+	"path"
+	"bufio"
 )
 
 func shortPath(s string, width int) string {
@@ -145,4 +149,43 @@ func walk(root string, f func(string, os.FileInfo, error)) {
 	} else {
 		f(root, fi, err)
 	}
+}
+
+var Temp = `resumeRecorder`
+
+func writeInfo(point *upyun.BreakPointConfig) (string, error) {
+	//保存信息
+	data, err := json.Marshal(point)
+	if err != nil {
+		Print("marshal data failed")
+		return "", err
+	}
+	//生成临时文件
+	TempPath := path.Join(os.TempDir(), Temp, point.UploadID)
+
+	file, err := os.OpenFile(TempPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	defer file.Close()
+	if err != nil {
+		PrintErrorAndExit("open file %s failed", TempPath)
+	}
+
+	write := bufio.NewWriter(file)
+	_, err = write.WriteString(time.Now().Format("2006-01-02-15-04"))
+	if err != nil {
+		PrintErrorAndExit("write string error, error= %s", err)
+		return "", err
+	}
+	_, err = write.Write(data)
+	if err != nil {
+		PrintErrorAndExit("write data to file error, error= %s", err)
+	}
+	_, err = write.WriteString("\n")
+	if err != nil {
+		PrintErrorAndExit("write string error, error= %s", err)
+	}
+	if err = write.Flush(); err != nil {
+		PrintErrorAndExit("write flush error, error= %s", err)
+	}
+
+	return TempPath, nil
 }
