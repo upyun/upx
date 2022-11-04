@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -26,6 +27,10 @@ const (
 	SYNC_NOT_FOUND
 	DELETE_OK
 	DELETE_FAIL
+
+	MinResumePutFileSize = 100 * 1024 * 1024
+	DefaultBlockSize     = 10 * 1024 * 1024
+	DefaultResumeRetry   = 10
 )
 
 type Session struct {
@@ -453,49 +458,64 @@ func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *Ma
 
 func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, localInfo os.FileInfo) (int, error) {
 	var err error
-	bar, idx := AddBar(barId, int(localInfo.Size()))
-	bar = bar.AppendCompleted()
-	bar.PrependFunc(func(b *uiprogress.Bar) string {
-		status := "WAIT"
-		if b.Current() == b.Total {
-			status = "OK"
-		}
-		name := leftAlign(shortPath(upPath, 40), 40)
-		if err != nil {
-			b.Set(bar.Total)
-			return fmt.Sprintf("%s ERR %s", name, err)
-		}
-		return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-	})
-
 	fd, err := os.Open(localPath)
 	if err != nil {
-		return idx, err
+		return -1, err
 	}
 	defer fd.Close()
-
 	var wg sync.WaitGroup
-	wReader := &ProgressReader{fd: fd}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for err == nil {
-			if wReader.Copyed() == bar.Total {
-				bar.Set(wReader.Copyed())
-				return
-			}
-			bar.Set(wReader.Copyed())
-		}
-	}()
-
-	err = sess.updriver.Put(&upyun.PutObjectConfig{
+	cfg := &upyun.PutObjectConfig{
 		Path: upPath,
 		Headers: map[string]string{
 			"Content-Length": fmt.Sprint(localInfo.Size()),
 		},
-		Reader: wReader,
-	})
+		Reader: fd,
+	}
+
+	idx := -1
+	if isVerbose {
+		var bar *uiprogress.Bar
+		bar, idx = AddBar(barId, int(localInfo.Size()))
+		bar = bar.AppendCompleted()
+		bar.PrependFunc(func(b *uiprogress.Bar) string {
+			status := "WAIT"
+			if b.Current() == b.Total {
+				status = "OK"
+			}
+			name := leftAlign(shortPath(upPath, 40), 40)
+			if err != nil {
+				b.Set(bar.Total)
+				return fmt.Sprintf("%s ERR %s", name, err)
+			}
+			return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
+		})
+		wReader := &ProgressReader{fd: fd}
+		cfg.Reader = wReader
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for err == nil {
+				if wReader.Copyed() == bar.Total {
+					bar.Set(wReader.Copyed())
+					return
+				}
+				bar.Set(wReader.Copyed())
+			}
+		}()
+	} else {
+		log.Printf("file: %s, Start\n", upPath)
+		if localInfo.Size() >= MinResumePutFileSize {
+			cfg.UseResumeUpload = true
+			cfg.ResumePartSize = DefaultBlockSize
+			cfg.MaxResumePutTries = DefaultResumeRetry
+		}
+	}
+
+	err = sess.updriver.Put(cfg)
 	wg.Wait()
+	if !isVerbose {
+		log.Printf("file: %s, Done\n", upPath)
+	}
 	return idx, err
 }
 
