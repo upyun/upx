@@ -58,6 +58,13 @@ type delTask struct {
 	isdir     bool
 }
 
+type UploadedFile struct {
+	barId     int
+	LocalPath string
+	UpPath    string
+	LocalInfo os.FileInfo
+}
+
 var (
 	session *Session
 )
@@ -521,12 +528,42 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 	return idx, err
 }
 
+func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers int) {
+	var wg sync.WaitGroup
+
+	tasks := make(chan *UploadedFile, workers*2)
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range tasks {
+				_, err := sess.putFileWithProgress(
+					task.barId,
+					task.LocalPath,
+					task.UpPath,
+					task.LocalInfo,
+				)
+				if err != nil {
+					fmt.Println("putFileWithProgress error: ", err.Error())
+					return
+				}
+			}
+		}()
+	}
+
+	for _, f := range localFiles {
+		tasks <- f
+	}
+
+	close(tasks)
+	wg.Wait()
+}
+
 func (sess *Session) putDir(localPath, upPath string, workers int) {
 	type FileInfo struct {
 		fpath string
 		fInfo os.FileInfo
 	}
-
 	localFiles := make(chan *FileInfo, workers*2)
 	var wg sync.WaitGroup
 	var err error
@@ -563,6 +600,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 	wg.Wait()
 }
 
+// Put 上传单文件或单目录
 func (sess *Session) Put(localPath, upPath string, workers int) {
 	upPath = sess.AbsPath(upPath)
 	localInfo, err := os.Stat(localPath)
@@ -594,6 +632,52 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 		}
 		sess.putFileWithProgress(-1, localPath, upPath, localInfo)
 	}
+}
+
+// Copy put的升级版命令
+func (sess *Session) Upload(filenames []string, upPath string, workers int) {
+	upPath = sess.AbsPath(upPath)
+
+	// 检测云端的目的地目录
+	upPathExist, upPathIsDir := false, false
+	if upInfo, _ := sess.updriver.GetInfo(upPath); upInfo != nil {
+		upPathExist = true
+		upPathIsDir = upInfo.IsDir
+	}
+	// 多文件上传 upPath 如果存在则只能是目录
+	if upPathExist && !upPathIsDir {
+		PrintErrorAndExit("upload: %s: Not a directory", upPath)
+	}
+
+	var (
+		dirs         []string
+		uploadedFile []*UploadedFile
+	)
+	for _, filename := range filenames {
+		localInfo, err := os.Stat(filename)
+		if err != nil {
+			PrintErrorAndExit(err.Error())
+		}
+
+		if localInfo.IsDir() {
+			dirs = append(dirs, filename)
+		} else {
+			uploadedFile = append(uploadedFile, &UploadedFile{
+				barId:     -1,
+				LocalPath: filename,
+				UpPath:    path.Join(upPath, filepath.Base(filename)),
+				LocalInfo: localInfo,
+			})
+		}
+	}
+
+	// 上传目录
+	for _, localPath := range dirs {
+		sess.putDir(localPath, path.Join(upPath, filepath.Base(localPath)), workers)
+	}
+
+	// 上传文件
+	sess.putFilesWitchProgress(uploadedFile, workers)
 }
 
 func (sess *Session) rm(fpath string, isAsync bool, isFolder bool) {
