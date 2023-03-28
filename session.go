@@ -474,34 +474,36 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 
 	idx := -1
 	if isVerbose {
-		var bar *uiprogress.Bar
-		bar, idx = AddBar(barId, int(localInfo.Size()))
-		bar = bar.AppendCompleted()
-		bar.PrependFunc(func(b *uiprogress.Bar) string {
-			status := "WAIT"
-			if b.Current() == b.Total {
-				status = "OK"
-			}
-			name := leftAlign(shortPath(upPath, 40), 40)
-			if err != nil {
-				b.Set(bar.Total)
-				return fmt.Sprintf("%s ERR %s", name, err)
-			}
-			return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-		})
-		wReader := &ProgressReader{fd: fd}
-		cfg.Reader = wReader
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for err == nil {
-				if wReader.Copyed() == bar.Total {
-					bar.Set(wReader.Copyed())
-					return
+		if localInfo.Size() > 0 {
+			var bar *uiprogress.Bar
+			bar, idx = AddBar(barId, int(localInfo.Size()))
+			bar = bar.AppendCompleted()
+			bar.PrependFunc(func(b *uiprogress.Bar) string {
+				status := "WAIT"
+				if b.Current() == b.Total {
+					status = "OK"
 				}
-				bar.Set(wReader.Copyed())
-			}
-		}()
+				name := leftAlign(shortPath(upPath, 40), 40)
+				if err != nil {
+					b.Set(bar.Total)
+					return fmt.Sprintf("%s ERR %s", name, err)
+				}
+				return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
+			})
+			wReader := &ProgressReader{fd: fd}
+			cfg.Reader = wReader
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for err == nil {
+					if wReader.Copyed() == bar.Total {
+						bar.Set(wReader.Copyed())
+						return
+					}
+					bar.Set(wReader.Copyed())
+				}
+			}()
+		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
 		if localInfo.Size() >= MinResumePutFileSize {
