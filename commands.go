@@ -306,16 +306,45 @@ func NewPutCommand() cli.Command {
 			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
 			upPath := "./"
+
+			if c.NArg() > 2 {
+				fmt.Println("Use the upload command instead of the put command for multiple file uploads")
+				os.Exit(0)
+			}
+
 			if c.NArg() > 1 {
 				upPath = c.Args().Get(1)
 			}
 
-			session.Put(localPath, upPath, c.Int("w"))
-
+			session.Put(
+				localPath,
+				upPath,
+				c.Int("w"),
+			)
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+		},
+	}
+}
+
+func NewUploadCommand() cli.Command {
+	return cli.Command{
+		Name:  "upload",
+		Usage: "upload multiple directory or file",
+		Action: func(c *cli.Context) error {
+			InitAndCheck(LOGIN, CHECK, c)
+			session.Upload(
+				c.Args(),
+				c.String("remote"),
+				c.Int("w"),
+			)
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
 		},
 	}
 }

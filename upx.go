@@ -54,6 +54,7 @@ func main() {
 		NewTreeCommand(),
 		NewGetCommand(),
 		NewPutCommand(),
+		NewUploadCommand(),
 		NewRmCommand(),
 		NewSyncCommand(),
 		NewAuthCommand(),
