@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -497,7 +499,7 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 				}
 				return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
 			})
-			wReader := &ProgressReader{fd: fd}
+			wReader := &ProgressReader{reader: fd}
 			cfg.Reader = wReader
 			wg.Add(1)
 			go func() {
@@ -526,6 +528,84 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 		log.Printf("file: %s, Done\n", upPath)
 	}
 	return idx, err
+}
+
+func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) (int, error) {
+	var size int64
+
+	// 如果可以的话，先从 Head 请求中获取文件长度
+	resp, err := http.Head(rawURL)
+	if err == nil && resp.ContentLength > 0 {
+		size = resp.ContentLength
+	}
+	resp.Body.Close()
+
+	// 通过get方法获取文件，如果get头中包含Content-Length，则使用get头中的Content-Length
+	resp, err = http.Get(rawURL)
+	if err != nil {
+		return 0, fmt.Errorf("http Get %s error: %v", rawURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.ContentLength > 0 {
+		size = resp.ContentLength
+	}
+
+	// 如果无法获取 Content-Length 则报错
+	if size == 0 {
+		return 0, fmt.Errorf("get http file Content-Length error: response headers not has Content-Length")
+	}
+
+	wReader := &ProgressReader{
+		reader: resp.Body,
+	}
+
+	// 创建进度条
+	bar, idx := AddBar(-1, int(size))
+	bar = bar.AppendCompleted()
+	bar.PrependFunc(func(b *uiprogress.Bar) string {
+		status := "WAIT"
+		if b.Current() == b.Total {
+			status = "OK"
+		}
+		name := leftAlign(shortPath(upPath, 40), 40)
+		if err != nil {
+			b.Set(bar.Total)
+			return fmt.Sprintf("%s ERR %s", name, err)
+		}
+		return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			if wReader.Copyed() == bar.Total {
+				bar.Set(wReader.Copyed())
+				return
+			}
+			bar.Set(wReader.Copyed())
+			time.Sleep(time.Millisecond * 20)
+		}
+	}()
+
+	// 上传文件
+	err = sess.updriver.Put(&upyun.PutObjectConfig{
+		Path:   upPath,
+		Reader: wReader,
+		UseMD5: false,
+		Headers: map[string]string{
+			"Content-Length": fmt.Sprint(size),
+		},
+	})
+
+	wg.Wait()
+	if err != nil {
+		PrintErrorAndExit("put file error: %v", err)
+	}
+
+	return idx, nil
 }
 
 func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers int) {
@@ -603,20 +683,48 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 // Put 上传单文件或单目录
 func (sess *Session) Put(localPath, upPath string, workers int) {
 	upPath = sess.AbsPath(upPath)
-	localInfo, err := os.Stat(localPath)
-	if err != nil {
-		PrintErrorAndExit("stat %s: %v", localPath, err)
-	}
 
 	exist, isDir := false, false
 	if upInfo, _ := sess.updriver.GetInfo(upPath); upInfo != nil {
 		exist = true
 		isDir = upInfo.IsDir
-	} else {
-		if strings.HasSuffix(upPath, "/") {
-			isDir = true
-		}
 	}
+	// 如果指定了是远程的目录 但是实际在远程的目录是文件类型则报错
+	if exist && !isDir && strings.HasSuffix(upPath, "/") {
+		PrintErrorAndExit("cant put to %s: path is not a directory, maybe a file", upPath)
+	}
+	if !exist && strings.HasSuffix(upPath, "/") {
+		isDir = true
+	}
+
+	// 如果需要上传的文件是URL链接
+	fileURL, err := url.ParseRequestURI(localPath)
+	if err == nil {
+		if !contains([]string{"http", "https"}, fileURL.Scheme) || fileURL.Host == "" {
+			PrintErrorAndExit("Invalid URL %s", localPath)
+		}
+
+		// 如果指定的远程路径 upPath 是目录
+		//     则从 url 中获取文件名，获取文件名失败则报错
+		if isDir {
+			if spaces := strings.Split(fileURL.Path, "/"); len(spaces) > 0 {
+				upPath = path.Join(upPath, spaces[len(spaces)-1])
+			} else {
+				PrintErrorAndExit("missing file name in the url, must has remote path name")
+			}
+		}
+		_, err := sess.putRemoteFileWithProgress(localPath, upPath)
+		if err != nil {
+			PrintErrorAndExit(err.Error())
+		}
+		return
+	}
+
+	localInfo, err := os.Stat(localPath)
+	if err != nil {
+		PrintErrorAndExit("stat %s: %v", localPath, err)
+	}
+
 	if localInfo.IsDir() {
 		if exist {
 			if !isDir {
