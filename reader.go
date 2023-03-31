@@ -1,25 +1,16 @@
 package main
 
 import (
-	"os"
+	"io"
 )
 
 type ProgressReader struct {
-	fd    *os.File
-	coyed int
-}
-
-func (r *ProgressReader) Len() int {
-	fInfo, _ := r.fd.Stat()
-	return int(fInfo.Size())
-}
-
-func (r *ProgressReader) MD5() string {
-	return ""
+	reader io.Reader
+	coyed  int
 }
 
 func (r *ProgressReader) Read(b []byte) (n int, err error) {
-	n, err = r.fd.Read(b)
+	n, err = r.reader.Read(b)
 	r.coyed += n
 	return
 }
