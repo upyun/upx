@@ -34,15 +34,27 @@ func (w *WrappedWriter) Close() error {
 	return w.w.Close()
 }
 
-func NewFileWrappedWriter(localPath string, bar *uiprogress.Bar) (*WrappedWriter, error) {
-	fd, err := os.Create(localPath)
+func NewFileWrappedWriter(localPath string, bar *uiprogress.Bar, resume bool) (*WrappedWriter, error) {
+	var fd *os.File
+	var err error
+
+	if resume {
+		fd, err = os.OpenFile(localPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0755)
+	} else {
+		fd, err = os.Create(localPath)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	fileinfo, err := fd.Stat()
 	if err != nil {
 		return nil, err
 	}
 
 	return &WrappedWriter{
 		w:      fd,
-		Copyed: 0,
+		Copyed: int(fileinfo.Size()),
 		bar:    bar,
 	}, nil
 }

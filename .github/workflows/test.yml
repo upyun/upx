@@ -41,4 +41,4 @@ jobs:
       - name: Test
         run: |
           go build .
-          go test -v .
+          go test -v ./...

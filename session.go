@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,6 +21,7 @@ import (
 	"github.com/gosuri/uiprogress"
 	"github.com/jehiah/go-strftime"
 	"github.com/upyun/go-sdk/v3/upyun"
+	"github.com/upyun/upx/partial"
 )
 
 const (
@@ -298,7 +300,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 						os.MkdirAll(lpath, 0755)
 					} else {
 						for i := 1; i <= MaxRetry; i++ {
-							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo)
+							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo, 1, false)
 							if e == nil {
 								break
 							}
@@ -328,7 +330,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 	return err
 }
 
-func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInfo *upyun.FileInfo) (int, error) {
+func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) (int, error) {
 	var err error
 
 	var bar *uiprogress.Bar
@@ -361,20 +363,36 @@ func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInf
 		return id, err
 	}
 
-	w, err := NewFileWrappedWriter(localPath, bar)
+	w, err := NewFileWrappedWriter(localPath, bar, resume)
 	if err != nil {
 		return id, err
 	}
 	defer w.Close()
 
-	_, err = sess.updriver.Get(&upyun.GetObjectConfig{
-		Path:   sess.AbsPath(upPath),
-		Writer: w,
-	})
+	downloader := partial.NewMultiPartialDownloader(
+		localPath,
+		upInfo.Size,
+		partial.DefaultChunkSize,
+		w,
+		works,
+		func(start, end int64) ([]byte, error) {
+			var buffer bytes.Buffer
+			_, err = sess.updriver.Get(&upyun.GetObjectConfig{
+				Path:   sess.AbsPath(upPath),
+				Writer: &buffer,
+				Headers: map[string]string{
+					"Range": fmt.Sprintf("bytes=%d-%d", start, end),
+				},
+			})
+			return buffer.Bytes(), err
+		},
+	)
+	err = downloader.Download()
+
 	return idx, err
 }
 
-func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers int) {
+func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers int, resume bool) {
 	upPath = sess.AbsPath(upPath)
 	upInfo, err := sess.updriver.GetInfo(upPath)
 	if err != nil {
@@ -406,7 +424,12 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 		if isDir {
 			localPath = filepath.Join(localPath, path.Base(upPath))
 		}
-		sess.getFileWithProgress(-1, upPath, localPath, upInfo)
+
+		// 小于 100M 不开启多线程
+		if upInfo.Size < 1024*1024*100 {
+			workers = 1
+		}
+		sess.getFileWithProgress(-1, upPath, localPath, upInfo, workers, resume)
 	}
 }
 
@@ -451,7 +474,7 @@ func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *Ma
 	for fInfo := range fInfoChan {
 		fp := filepath.Join(fpath, fInfo.Name)
 		if (fp >= startList || startList == "") && (fp < endList || endList == "") {
-			sess.Get(fp, localPath, match, workers)
+			sess.Get(fp, localPath, match, workers, false)
 		} else if strings.HasPrefix(startList, fp) {
 			//前缀相同进入下一级文件夹，继续递归判断
 			if fInfo.IsDir {
