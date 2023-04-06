@@ -10,7 +10,7 @@ jobs:
         go-version: [^1]
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    if: contains(github.event.pull_request.labels.*.name, 'ok to test')
+    if: ${{ github.event_name != 'pull_request_target' || (contains(github.event.pull_request.labels.*.name, 'ok to test') && github.event.pull_request.state == 'open') }}
     env:
       GO111MODULE: "on"
       UPYUN_BUCKET1: ${{ secrets.UPYUN_BUCKET1 }}
