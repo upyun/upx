@@ -721,9 +721,9 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 	}
 
 	// 如果需要上传的文件是URL链接
-	fileURL, err := url.ParseRequestURI(localPath)
-	if err == nil {
-		if !contains([]string{"http", "https"}, fileURL.Scheme) || fileURL.Host == "" {
+	fileURL, _ := url.ParseRequestURI(localPath)
+	if fileURL != nil && fileURL.Scheme != "" && fileURL.Host != "" {
+		if !contains([]string{"http", "https"}, fileURL.Scheme) {
 			PrintErrorAndExit("Invalid URL %s", localPath)
 		}
 
