@@ -1,7 +1,12 @@
 name: Test
 on:
-  pull_request:
+  pull_request_target:
+    types: [labeled]
+    paths-ignore:
+      - "**.md"
   push:
+    paths-ignore:
+      - "**.md"
 
 jobs:
   build:
@@ -18,6 +23,11 @@ jobs:
       UPYUN_PASSWORD: ${{ secrets.UPYUN_PASSWORD }}
       UPYUN_USERNAME: ${{ secrets.UPYUN_USERNAME }}
     steps:
+      - name: Remove 'ok to test' Label
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: actions-ecosystem/action-remove-labels@v1.3.0
+        with:
+          labels: 'ok to test'
       - name: Install Go
         uses: actions/setup-go@v2
         with:
