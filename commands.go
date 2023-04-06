@@ -282,15 +282,19 @@ func NewGetCommand() cli.Command {
 					PrintErrorAndExit("get %s: parse mtime: %v", upPath, err)
 				}
 			}
+			if c.Int("w") > 10 || c.Int("w") < 1 {
+				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
+			}
 			if mc.Start != "" || mc.End != "" {
 				session.GetStartBetweenEndFiles(upPath, localPath, mc, c.Int("w"))
 			} else {
-				session.Get(upPath, localPath, mc, c.Int("w"))
+				session.Get(upPath, localPath, mc, c.Int("w"), c.Bool("c"))
 			}
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads (1-10)", Value: 5},
+			cli.BoolFlag{Name: "c", Usage: "continue download, Resume Broken Download"},
 			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
 			cli.StringFlag{Name: "start", Usage: "file download range starting location"},
 			cli.StringFlag{Name: "end", Usage: "file download range ending location"},
@@ -315,7 +319,9 @@ func NewPutCommand() cli.Command {
 			if c.NArg() > 1 {
 				upPath = c.Args().Get(1)
 			}
-
+			if c.Int("w") > 10 || c.Int("w") < 1 {
+				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
+			}
 			session.Put(
 				localPath,
 				upPath,
@@ -332,9 +338,12 @@ func NewPutCommand() cli.Command {
 func NewUploadCommand() cli.Command {
 	return cli.Command{
 		Name:  "upload",
-		Usage: "upload multiple directory or file",
+		Usage: "upload multiple directory or file or http url",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
+			if c.Int("w") > 10 || c.Int("w") < 1 {
+				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
+			}
 			session.Upload(
 				c.Args(),
 				c.String("remote"),
@@ -421,6 +430,9 @@ func NewSyncCommand() cli.Command {
 			upPath := session.CWD
 			if c.NArg() > 1 {
 				upPath = c.Args().Get(1)
+			}
+			if c.Int("w") > 10 || c.Int("w") < 1 {
+				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
 			session.Sync(localPath, upPath, c.Int("w"), c.Bool("delete"), c.Bool("strong"))
 			return nil
