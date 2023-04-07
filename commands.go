@@ -260,6 +260,10 @@ func NewGetCommand() cli.Command {
 			InitAndCheck(LOGIN, CHECK, c)
 			upPath := c.Args().First()
 			localPath := "." + string(filepath.Separator)
+
+			if c.NArg() > 2 {
+				PrintErrorAndExit("upx get args limit 2")
+			}
 			if c.NArg() > 1 {
 				localPath = c.Args().Get(1)
 			}
