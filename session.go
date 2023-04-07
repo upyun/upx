@@ -19,7 +19,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gosuri/uiprogress"
-	"github.com/jehiah/go-strftime"
 	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/upyun/upx/partial"
 )
@@ -148,9 +147,9 @@ func (sess *Session) FormatUpInfo(upInfo *upyun.FileInfo) string {
 	}
 	s += fmt.Sprintf(" 1 %s %s %12d", sess.Operator, sess.Bucket, upInfo.Size)
 	if upInfo.Time.Year() != time.Now().Year() {
-		s += " " + strftime.Format("%b %d  %Y", upInfo.Time)
+		s += " " + upInfo.Time.Format("Jan 02  2006")
 	} else {
-		s += " " + strftime.Format("%b %d %H:%M", upInfo.Time)
+		s += " " + upInfo.Time.Format("Jan 02 03:04")
 	}
 	if upInfo.IsDir && sess.color {
 		s += " " + color.BlueString(upInfo.Name)

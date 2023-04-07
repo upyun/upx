@@ -8,8 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-
-	"github.com/kardianos/osext"
 )
 
 const (
@@ -18,7 +16,7 @@ const (
 )
 
 func GetCurrentBinPath() string {
-	p, _ := osext.Executable()
+	p, _ := os.Executable()
 	return p
 }
 

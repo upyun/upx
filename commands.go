@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/howeyc/gopass"
 	"github.com/urfave/cli"
+	"golang.org/x/term"
 )
 
 const (
@@ -53,7 +53,7 @@ func NewLoginCommand() cli.Command {
 				fmt.Printf("Operator: ")
 				fmt.Scanf("%s\n", &session.Operator)
 				fmt.Printf("Password: ")
-				b, err := gopass.GetPasswdMasked()
+				b, err := term.ReadPassword(int(os.Stdin.Fd()))
 				if err == nil {
 					session.Password = string(b)
 				}
