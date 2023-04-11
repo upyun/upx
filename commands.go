@@ -173,8 +173,9 @@ func NewInfoCommand() cli.Command {
 
 func NewMkdirCommand() cli.Command {
 	return cli.Command{
-		Name:  "mkdir",
-		Usage: "Make directory",
+		Name:      "mkdir",
+		Usage:     "Make directory",
+		ArgsUsage: "<remote-dir>",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			session.Mkdir(c.Args()...)
@@ -185,8 +186,9 @@ func NewMkdirCommand() cli.Command {
 
 func NewCdCommand() cli.Command {
 	return cli.Command{
-		Name:  "cd",
-		Usage: "Change directory",
+		Name:      "cd",
+		Usage:     "Change directory",
+		ArgsUsage: "<remote-path>",
 		Action: func(c *cli.Context) error {
 			Init(LOGIN)
 			fpath := "/"
@@ -214,8 +216,9 @@ func NewPwdCommand() cli.Command {
 
 func NewLsCommand() cli.Command {
 	return cli.Command{
-		Name:  "ls",
-		Usage: "List directory or file",
+		Name:      "ls",
+		Usage:     "List directory or file",
+		ArgsUsage: "<remote-path>",
 		Action: func(c *cli.Context) error {
 			Init(LOGIN)
 			fpath := session.CWD
@@ -254,8 +257,9 @@ func NewLsCommand() cli.Command {
 
 func NewGetCommand() cli.Command {
 	return cli.Command{
-		Name:  "get",
-		Usage: "Get directory or file",
+		Name:      "get",
+		Usage:     "Get directory or file",
+		ArgsUsage: "[-c] <remote-path> [save-path]",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			upPath := c.Args().First()
@@ -308,8 +312,9 @@ func NewGetCommand() cli.Command {
 
 func NewPutCommand() cli.Command {
 	return cli.Command{
-		Name:  "put",
-		Usage: "Put directory or file",
+		Name:      "put",
+		Usage:     "Put directory or file",
+		ArgsUsage: "<local-path> [remote-path]",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
@@ -341,8 +346,9 @@ func NewPutCommand() cli.Command {
 
 func NewUploadCommand() cli.Command {
 	return cli.Command{
-		Name:  "upload",
-		Usage: "upload multiple directory or file or http url",
+		Name:      "upload",
+		Usage:     "upload multiple directory or file or http url",
+		ArgsUsage: "[local-path...] [url...] [--remote remote-path]",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			if c.Int("w") > 10 || c.Int("w") < 1 {
@@ -364,8 +370,9 @@ func NewUploadCommand() cli.Command {
 
 func NewRmCommand() cli.Command {
 	return cli.Command{
-		Name:  "rm",
-		Usage: "Remove directory or file",
+		Name:      "rm",
+		Usage:     "Remove directory or file",
+		ArgsUsage: "<remote-path>",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			fpath := c.Args().First()
@@ -406,8 +413,9 @@ func NewRmCommand() cli.Command {
 
 func NewTreeCommand() cli.Command {
 	return cli.Command{
-		Name:  "tree",
-		Usage: "List contents of directories in a tree-like format",
+		Name:      "tree",
+		Usage:     "List contents of directories in a tree-like format",
+		ArgsUsage: "<remote-path>",
 		Action: func(c *cli.Context) error {
 			Init(LOGIN)
 			fpath := session.CWD
@@ -426,8 +434,9 @@ func NewTreeCommand() cli.Command {
 
 func NewSyncCommand() cli.Command {
 	return cli.Command{
-		Name:  "sync",
-		Usage: "Sync local directory to UpYun",
+		Name:      "sync",
+		Usage:     "Sync local directory to UpYun",
+		ArgsUsage: "<local-path> [remote-path]",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
