@@ -277,7 +277,7 @@ func (sess *Session) Ls(upPath string, match *MatchConfig, maxItems int, isDesc 
 	}
 }
 
-func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, workers int) error {
+func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, workers int, resume bool) error {
 	if err := os.MkdirAll(localPath, 0755); err != nil {
 		return err
 	}
@@ -298,8 +298,26 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 					if fInfo.IsDir {
 						os.MkdirAll(lpath, 0755)
 					} else {
+						isContinue := resume
+
+						// 判断本地文件是否存在
+						// 如果存在，大小一致 并且本地文件的最后修改时间大于云端文件的最后修改时间 则跳过该下载
+						// 如果云端文件最后的修改时间大于本地文件的创建时间，则强制重新下载
+						stat, err := os.Stat(lpath)
+						if err == nil {
+							if stat.Size() == fInfo.Size && stat.ModTime().After(fInfo.Time) {
+								continue
+							}
+							if stat.Size() > fInfo.Size {
+								isContinue = false
+							}
+							if fInfo.Time.After(stat.ModTime()) {
+								isContinue = false
+							}
+						}
+
 						for i := 1; i <= MaxRetry; i++ {
-							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo, 1, false)
+							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo, 1, isContinue)
 							if e == nil {
 								break
 							}
@@ -418,7 +436,7 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 				}
 			}
 		}
-		sess.getDir(upPath, localPath, match, workers)
+		sess.getDir(upPath, localPath, match, workers, resume)
 	} else {
 		if isDir {
 			localPath = filepath.Join(localPath, path.Base(upPath))
