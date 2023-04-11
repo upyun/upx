@@ -26,14 +26,14 @@
 
 ### 可执行程序二进制下载地址
 
-- [Windows x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_Windows_x86_64.zip)
-- [Windows i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_Windows_i386.zip)
-- [Mac x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_Darwin_x86_64.tar.gz)
-- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_linux_x86_64.tar.gz)
-- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_linux_i386.tar.gz)
-- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_linux_arm64.tar.gz)
-- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_linux_armv6.tar.gz)
-- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.6_linux_armv7.tar.gz)
+- [Windows x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Windows_x86_64.zip)
+- [Windows i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Windows_i386.zip)
+- [Mac x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Darwin_x86_64.tar.gz)
+- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_x86_64.tar.gz)
+- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_i386.tar.gz)
+- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_arm64.tar.gz)
+- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_armv6.tar.gz)
+- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_armv7.tar.gz)
 
 ### 源码编译
 
@@ -46,7 +46,7 @@ $ cd upx && make
 or
 
 ```
-$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.6
+$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.7
 ```
 
 ### Windows
@@ -83,6 +83,7 @@ docker run --rm upx upx -v
 | tree     | 显示目录结构 |
 | get      | 下载一个文件或目录 |
 | put      | 上传一个文件或目录 |
+| upload   | 支持拉取 http(s) 文件, 支持 Glob 模式过滤上传文件|
 | rm       | 删除目录或文件 |
 | sync     | 目录增量同步，类似 rsync |
 | auth     | 生成包含空间名操作员密码信息的 auth 字符串 |
