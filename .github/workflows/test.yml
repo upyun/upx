@@ -50,5 +50,4 @@ jobs:
         run: go mod download
       - name: Test
         run: |
-          go build .
           go test -v ./...

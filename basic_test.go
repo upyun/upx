@@ -1,4 +1,4 @@
-package main
+package upx
 
 import (
 	"fmt"
@@ -69,7 +69,7 @@ func TestSessionsAndSwitch(t *testing.T) {
 	Equal(t, strings.HasPrefix(string(b), strings.Join(s, "\n")), true)
 }
 
-//TODO
+// TODO
 func TestAuth(t *testing.T) {
 }
 

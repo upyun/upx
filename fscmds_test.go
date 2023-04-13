@@ -1,4 +1,4 @@
-package main
+package upx
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 )
 
 /*
-	mkdir /path/to/mkdir/case1
-	cd /path/to/mkdir
-	mkdir case2
-	cd case2
-	mkdir ../case3
-	cd ../case3
-	ls /path/to/mkdir
+mkdir /path/to/mkdir/case1
+cd /path/to/mkdir
+mkdir case2
+cd case2
+mkdir ../case3
+cd ../case3
+ls /path/to/mkdir
 */
 func TestMkdirAndCdAndPwd(t *testing.T) {
 	SetUp()
@@ -61,11 +61,11 @@ func TestMkdirAndCdAndPwd(t *testing.T) {
 }
 
 /*
-	ls /path/to/file
-	ls -r /path/to/dir
-	ls -c 10 /path/to/dir
-	ls -d /path/to/dir
-	ls -r -d -c 10 /path/to/dir
+ls /path/to/file
+ls -r /path/to/dir
+ls -c 10 /path/to/dir
+ls -d /path/to/dir
+ls -r -d -c 10 /path/to/dir
 */
 func TestLs(t *testing.T) {
 	base := ROOT + "/ls"
