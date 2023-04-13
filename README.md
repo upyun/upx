@@ -463,7 +463,7 @@ upx sync <local-path> <remote-path>
 #### 示例
 同步本地路径和远程路径
 ```bash
-upx ./workspace /workspace
+upx sync ./workspace /workspace
 ```
 
 ## auth
