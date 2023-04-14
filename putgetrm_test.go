@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func putFile(t *testing.T, src, dst, correct string) {
@@ -17,11 +19,11 @@ func putFile(t *testing.T, src, dst, correct string) {
 	} else {
 		_, err = Upx("put", src, dst)
 	}
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	b, err := Upx("ls", correct)
-	Nil(t, err)
-	Equal(t, strings.HasSuffix(string(b), " "+correct+"\n"), true)
+	assert.NoError(t, err)
+	assert.Equal(t, strings.HasSuffix(string(b), " "+correct+"\n"), true)
 }
 
 func compare(t *testing.T, local, up string) {
@@ -33,7 +35,7 @@ func compare(t *testing.T, local, up string) {
 	}
 
 	b, err := Upx("ls", up)
-	Nil(t, err)
+	assert.NoError(t, err)
 	output := strings.TrimRight(string(b), "\n")
 	for _, line := range strings.Split(output, "\n") {
 		items := strings.Split(line, " ")
@@ -43,9 +45,9 @@ func compare(t *testing.T, local, up string) {
 	sort.Strings(locals)
 	sort.Strings(ups)
 
-	Equal(t, len(locals), len(ups))
+	assert.Equal(t, len(locals), len(ups))
 	for i := 0; i < len(locals); i++ {
-		Equal(t, locals[i], ups[i])
+		assert.Equal(t, locals[i], ups[i])
 	}
 }
 
@@ -56,7 +58,7 @@ func putDir(t *testing.T, src, dst, correct string) {
 	} else {
 		_, err = Upx("put", src, dst)
 	}
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	compare(t, src, correct)
 }
@@ -68,10 +70,10 @@ func getFile(t *testing.T, src, dst, correct string) {
 	} else {
 		_, err = Upx("get", src, dst)
 	}
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	_, err = os.Stat(correct)
-	Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func getDir(t *testing.T, src, dst, correct string) {
@@ -81,7 +83,7 @@ func getDir(t *testing.T, src, dst, correct string) {
 	} else {
 		_, err = Upx("get", src, dst)
 	}
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	compare(t, correct, src)
 }
@@ -89,17 +91,17 @@ func getDir(t *testing.T, src, dst, correct string) {
 func TestPutAndGet(t *testing.T) {
 	base := ROOT + "/put/"
 	pwd, err := ioutil.TempDir("", "test")
-	Nil(t, err)
+	assert.NoError(t, err)
 	localBase := filepath.Join(pwd, "put")
 	func() {
 		SetUp()
 		err := os.MkdirAll(localBase, 0755)
-		Nil(t, err)
+		assert.NoError(t, err)
 	}()
 	defer TearDown()
 
 	err = os.Chdir(localBase)
-	Nil(t, err)
+	assert.NoError(t, err)
 	Upx("mkdir", base)
 	Upx("cd", base)
 
@@ -130,12 +132,12 @@ func TestPutAndGet(t *testing.T) {
 	putDir(t, localBase, base+"/putdir/", base+"/putdir/")
 
 	_, err = Upx("put", localBase, path.Join(base, "FILE"))
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	localBase = filepath.Join(pwd, "get")
 	os.MkdirAll(localBase, 0755)
 	err = os.Chdir(localBase)
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	// upx get /path/to/file
 	getFile(t, path.Join(base, "FILE"), "", filepath.Join(localBase, "FILE"))
@@ -162,16 +164,16 @@ func TestPutAndGet(t *testing.T) {
 	getDir(t, "../put", localPath, localPath)
 
 	_, err = Upx("get", base, filepath.Join(localBase, "FILE"))
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	// upx get FILE*
 	localPath = filepath.Join(localBase, "wildcard") + string(filepath.Separator)
 	_, err = Upx("get", "FILE*", localPath)
-	Nil(t, err)
+	assert.NoError(t, err)
 	files, _ := Upx("ls", "FILE*")
 	lfiles, _ := ioutil.ReadDir(localPath)
-	NotEqual(t, len(lfiles), 0)
-	Equal(t, len(lfiles)+1, len(strings.Split(string(files), "\n")))
+	assert.NotEqual(t, len(lfiles), 0)
+	assert.Equal(t, len(lfiles)+1, len(strings.Split(string(files), "\n")))
 }
 
 func TestRm(t *testing.T) {
@@ -180,25 +182,25 @@ func TestRm(t *testing.T) {
 	base := ROOT + "/put/"
 	Upx("cd", base)
 	_, err := Upx("rm", "put")
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	_, err = Upx("rm", "put/FILE")
-	Nil(t, err)
+	assert.NoError(t, err)
 	_, err = Upx("ls", "put/FILE")
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	_, err = Upx("rm", "put/FILE*")
-	Nil(t, err)
+	assert.NoError(t, err)
 	_, err = Upx("ls", "put/FILE*")
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	_, err = Upx("rm", "-d", "put/*")
-	Nil(t, err)
+	assert.NoError(t, err)
 	_, err = Upx("ls", "-d", "put/*")
-	NotNil(t, err)
+	assert.Error(t, err)
 
 	_, err = Upx("rm", "-a", "put")
-	Nil(t, err)
+	assert.NoError(t, err)
 	_, err = Upx("ls", "put")
-	NotNil(t, err)
+	assert.Error(t, err)
 }

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string) {
@@ -26,7 +28,7 @@ func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string)
 	} else {
 		_, err = Upx("get", src, dst, "--start="+start, "--end="+end)
 	}
-	Nil(t, err)
+	assert.NoError(t, err)
 }
 
 /*
@@ -49,18 +51,18 @@ func TestGetStartBetweenEndFiles(t *testing.T) {
 	root := strings.Join(strings.Split(ROOT, " "), "-")
 	base := root + "/get/"
 	pwd, err := ioutil.TempDir("", "test")
-	Nil(t, err)
+	assert.NoError(t, err)
 	localBase := filepath.Join(pwd, "get")
 
 	func() {
 		SetUp()
 		err := os.MkdirAll(localBase, 0755)
-		Nil(t, err)
+		assert.NoError(t, err)
 	}()
 	defer TearDown()
 
 	err = os.Chdir(localBase)
-	Nil(t, err)
+	assert.NoError(t, err)
 	Upx("mkdir", base)
 	Upx("cd", base)
 
@@ -123,11 +125,11 @@ func TestGetStartBetweenEndFiles(t *testing.T) {
 
 		sort.Strings(tc.real)
 		sort.Strings(tc.want)
-		Equal(t, len(tc.real), len(tc.want))
+		assert.Equal(t, len(tc.real), len(tc.want))
 
 		for i := 0; i < len(tc.real); i++ {
 			log.Println("compare:", tc.real[i], " ", tc.want[i])
-			Equal(t, tc.real[i], tc.want[i])
+			assert.Equal(t, tc.real[i], tc.want[i])
 		}
 	}
 }
@@ -151,7 +153,7 @@ func localFile(local, up string) []string {
 // 递归获取云存储目录文件
 func upFile(t *testing.T, up, start, end string) []string {
 	b, err := Upx("ls", up)
-	Nil(t, err)
+	assert.NoError(t, err)
 
 	var ups []string
 	output := strings.TrimRight(string(b), "\n")
