@@ -1,8 +1,7 @@
-package main
+package upx
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"time"
 
@@ -11,11 +10,7 @@ import (
 
 const VERSION = "v0.3.7"
 
-func main() {
-	initProgress()
-	progress.Start()
-	defer progress.Stop()
-
+func CreateUpxApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "upx"
 	app.Usage = "a tool for driving UpYun Storage"
@@ -64,6 +59,5 @@ func main() {
 		NewCleanDBCommand(),
 		NewUpgradeCommand(),
 	}
-
-	app.Run(os.Args)
+	return app
 }

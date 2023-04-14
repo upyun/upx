@@ -1,4 +1,4 @@
-package main
+package upx
 
 import (
 	"time"
@@ -6,18 +6,18 @@ import (
 	"github.com/gosuri/uiprogress"
 )
 
-var progress *uiprogress.Progress
+var Progress *uiprogress.Progress
 
 func AddBar(id, total int) (*uiprogress.Bar, int) {
-	if id >= len(progress.Bars) || id < 0 {
-		return progress.AddBar(total), len(progress.Bars) - 1
+	if id >= len(Progress.Bars) || id < 0 {
+		return Progress.AddBar(total), len(Progress.Bars) - 1
 	} else {
-		progress.Bars[id] = uiprogress.NewBar(total)
-		return progress.Bars[id], id
+		Progress.Bars[id] = uiprogress.NewBar(total)
+		return Progress.Bars[id], id
 	}
 }
 
-func initProgress() {
-	progress = uiprogress.New()
-	progress.RefreshInterval = time.Millisecond * 100
+func InitProgress() {
+	Progress = uiprogress.New()
+	Progress.RefreshInterval = time.Millisecond * 100
 }

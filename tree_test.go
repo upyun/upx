@@ -1,9 +1,11 @@
-package main
+package upx
 
 import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTree(t *testing.T) {
@@ -32,16 +34,16 @@ func TestTree(t *testing.T) {
 	}()
 
 	tree1, err := Upx("tree")
-	Nil(t, err)
+	assert.NoError(t, err)
 	tree1s := string(tree1)
 	arr := strings.Split(tree1s, "\n")
-	Equal(t, len(arr), len(dirs)+len(files)+4)
+	assert.Equal(t, len(arr), len(dirs)+len(files)+4)
 	pwd, _ := Upx("pwd")
-	Equal(t, arr[0]+"\n", string(pwd))
-	Equal(t, arr[len(arr)-3], "")
-	Equal(t, arr[len(arr)-2], fmt.Sprintf("%d directories, %d files", len(dirs), len(files)))
+	assert.Equal(t, arr[0]+"\n", string(pwd))
+	assert.Equal(t, arr[len(arr)-3], "")
+	assert.Equal(t, arr[len(arr)-2], fmt.Sprintf("%d directories, %d files", len(dirs), len(files)))
 
 	tree2, err := Upx("tree", base)
-	Nil(t, err)
-	Equal(t, string(tree2), string(tree1))
+	assert.NoError(t, err)
+	assert.Equal(t, string(tree2), string(tree1))
 }
