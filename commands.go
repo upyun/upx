@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 )
 
@@ -35,15 +35,15 @@ func InitAndCheck(login, check bool, c *cli.Context) {
 	}
 }
 
-func NewLoginCommand() cli.Command {
-	return cli.Command{
+func NewLoginCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "login",
 		Usage: "Log in to UpYun",
 		Action: func(c *cli.Context) error {
 			Init(NO_LOGIN)
 			session = &Session{CWD: "/"}
 			args := c.Args()
-			if len(args) == 3 {
+			if args.Len() == 3 {
 				session.Bucket = args.Get(0)
 				session.Operator = args.Get(1)
 				session.Password = args.Get(2)
@@ -81,8 +81,8 @@ func NewLoginCommand() cli.Command {
 	}
 }
 
-func NewLogoutCommand() cli.Command {
-	return cli.Command{
+func NewLogoutCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "logout",
 		Usage: "Log out of your UpYun account",
 		Action: func(c *cli.Context) error {
@@ -100,13 +100,13 @@ func NewLogoutCommand() cli.Command {
 	}
 }
 
-func NewAuthCommand() cli.Command {
-	return cli.Command{
+func NewAuthCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "auth",
 		Usage: "Generate auth string",
 		Action: func(c *cli.Context) error {
 			if c.NArg() == 3 {
-				s, err := makeAuthStr(c.Args()[0], c.Args()[1], c.Args()[2])
+				s, err := makeAuthStr(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2))
 				if err != nil {
 					PrintErrorAndExit("auth: %v", err)
 				}
@@ -119,8 +119,8 @@ func NewAuthCommand() cli.Command {
 	}
 }
 
-func NewListSessionsCommand() cli.Command {
-	return cli.Command{
+func NewListSessionsCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "sessions",
 		Usage: "List all sessions",
 		Action: func(c *cli.Context) error {
@@ -137,8 +137,8 @@ func NewListSessionsCommand() cli.Command {
 	}
 }
 
-func NewSwitchSessionCommand() cli.Command {
-	return cli.Command{
+func NewSwitchSessionCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "switch",
 		Usage: "Switch to specific session",
 		Action: func(c *cli.Context) error {
@@ -159,8 +159,8 @@ func NewSwitchSessionCommand() cli.Command {
 	}
 }
 
-func NewInfoCommand() cli.Command {
-	return cli.Command{
+func NewInfoCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "info",
 		Usage: "Current session information",
 		Action: func(c *cli.Context) error {
@@ -171,21 +171,21 @@ func NewInfoCommand() cli.Command {
 	}
 }
 
-func NewMkdirCommand() cli.Command {
-	return cli.Command{
+func NewMkdirCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "mkdir",
 		Usage:     "Make directory",
 		ArgsUsage: "<remote-dir>",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
-			session.Mkdir(c.Args()...)
+			session.Mkdir(c.Args().Slice()...)
 			return nil
 		},
 	}
 }
 
-func NewCdCommand() cli.Command {
-	return cli.Command{
+func NewCdCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "cd",
 		Usage:     "Change directory",
 		ArgsUsage: "<remote-path>",
@@ -202,8 +202,8 @@ func NewCdCommand() cli.Command {
 	}
 }
 
-func NewPwdCommand() cli.Command {
-	return cli.Command{
+func NewPwdCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "pwd",
 		Usage: "Print working directory",
 		Action: func(c *cli.Context) error {
@@ -214,8 +214,8 @@ func NewPwdCommand() cli.Command {
 	}
 }
 
-func NewLsCommand() cli.Command {
-	return cli.Command{
+func NewLsCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "ls",
 		Usage:     "List directory or file",
 		ArgsUsage: "<remote-path>",
@@ -246,17 +246,17 @@ func NewLsCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.BoolFlag{Name: "r", Usage: "reverse order"},
-			cli.BoolFlag{Name: "d", Usage: "only show directory"},
-			cli.BoolFlag{Name: "color", Usage: "colorful output"},
-			cli.IntFlag{Name: "c", Usage: "max items to list"},
-			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+			&cli.BoolFlag{Name: "r", Usage: "reverse order"},
+			&cli.BoolFlag{Name: "d", Usage: "only show directory"},
+			&cli.BoolFlag{Name: "color", Usage: "colorful output"},
+			&cli.IntFlag{Name: "c", Usage: "max items to list"},
+			&cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
 		},
 	}
 }
 
-func NewGetCommand() cli.Command {
-	return cli.Command{
+func NewGetCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "get",
 		Usage:     "Get directory or file",
 		ArgsUsage: "[-c] <remote-path> [save-path]",
@@ -301,17 +301,17 @@ func NewGetCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.IntFlag{Name: "w", Usage: "max concurrent threads (1-10)", Value: 5},
-			cli.BoolFlag{Name: "c", Usage: "continue download, Resume Broken Download"},
-			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
-			cli.StringFlag{Name: "start", Usage: "file download range starting location"},
-			cli.StringFlag{Name: "end", Usage: "file download range ending location"},
+			&cli.IntFlag{Name: "w", Usage: "max concurrent threads (1-10)", Value: 5},
+			&cli.BoolFlag{Name: "c", Usage: "continue download, Resume Broken Download"},
+			&cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+			&cli.StringFlag{Name: "start", Usage: "file download range starting location"},
+			&cli.StringFlag{Name: "end", Usage: "file download range ending location"},
 		},
 	}
 }
 
-func NewPutCommand() cli.Command {
-	return cli.Command{
+func NewPutCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "put",
 		Usage:     "Put directory or file",
 		ArgsUsage: "<local-path> [remote-path]",
@@ -339,13 +339,13 @@ func NewPutCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			&cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 		},
 	}
 }
 
-func NewUploadCommand() cli.Command {
-	return cli.Command{
+func NewUploadCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "upload",
 		Usage:     "upload multiple directory or file or http url",
 		ArgsUsage: "[local-path...] [url...] [--remote remote-path]",
@@ -355,21 +355,21 @@ func NewUploadCommand() cli.Command {
 				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
 			session.Upload(
-				c.Args(),
+				c.Args().Slice(),
 				c.String("remote"),
 				c.Int("w"),
 			)
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
-			cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
+			&cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			&cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
 		},
 	}
 }
 
-func NewRmCommand() cli.Command {
-	return cli.Command{
+func NewRmCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "rm",
 		Usage:     "Remove directory or file",
 		ArgsUsage: "<remote-path>",
@@ -403,16 +403,16 @@ func NewRmCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.BoolFlag{Name: "d", Usage: "only remove directories"},
-			cli.BoolFlag{Name: "a", Usage: "remove files, directories and their contents recursively, never prompt"},
-			cli.BoolFlag{Name: "async", Usage: "remove asynchronously"},
-			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+			&cli.BoolFlag{Name: "d", Usage: "only remove directories"},
+			&cli.BoolFlag{Name: "a", Usage: "remove files, directories and their contents recursively, never prompt"},
+			&cli.BoolFlag{Name: "async", Usage: "remove asynchronously"},
+			&cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
 		},
 	}
 }
 
-func NewTreeCommand() cli.Command {
-	return cli.Command{
+func NewTreeCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "tree",
 		Usage:     "List contents of directories in a tree-like format",
 		ArgsUsage: "<remote-path>",
@@ -427,13 +427,13 @@ func NewTreeCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.BoolFlag{Name: "color", Usage: "colorful output"},
+			&cli.BoolFlag{Name: "color", Usage: "colorful output"},
 		},
 	}
 }
 
-func NewSyncCommand() cli.Command {
-	return cli.Command{
+func NewSyncCommand() *cli.Command {
+	return &cli.Command{
 		Name:      "sync",
 		Usage:     "Sync local directory to UpYun",
 		ArgsUsage: "<local-path> [remote-path]",
@@ -451,15 +451,15 @@ func NewSyncCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
-			cli.BoolFlag{Name: "delete", Usage: "delete extraneous files from last sync"},
-			cli.BoolFlag{Name: "strong", Usage: "strong consistency"},
+			&cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			&cli.BoolFlag{Name: "delete", Usage: "delete extraneous files from last sync"},
+			&cli.BoolFlag{Name: "strong", Usage: "strong consistency"},
 		},
 	}
 }
 
-func NewPostCommand() cli.Command {
-	return cli.Command{
+func NewPostCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "post",
 		Usage: "Post async process task",
 		Action: func(c *cli.Context) error {
@@ -471,31 +471,31 @@ func NewPostCommand() cli.Command {
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.StringFlag{Name: "app", Usage: "app name"},
-			cli.StringFlag{Name: "notify", Usage: "notify url"},
-			cli.StringFlag{Name: "task", Usage: "task file"},
+			&cli.StringFlag{Name: "app", Usage: "app name"},
+			&cli.StringFlag{Name: "notify", Usage: "notify url"},
+			&cli.StringFlag{Name: "task", Usage: "task file"},
 		},
 	}
 }
 
-func NewPurgeCommand() cli.Command {
-	return cli.Command{
+func NewPurgeCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "purge",
 		Usage: "refresh CDN cache",
 		Action: func(c *cli.Context) error {
 			InitAndCheck(LOGIN, CHECK, c)
 			list := c.String("list")
-			session.Purge(c.Args(), list)
+			session.Purge(c.Args().Slice(), list)
 			return nil
 		},
 		Flags: []cli.Flag{
-			cli.StringFlag{Name: "list", Usage: "file which contains urls"},
+			&cli.StringFlag{Name: "list", Usage: "file which contains urls"},
 		},
 	}
 }
 
-func NewGetDBCommand() cli.Command {
-	return cli.Command{
+func NewGetDBCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "get-db",
 		Usage: "get db value",
 		Action: func(c *cli.Context) error {
@@ -506,7 +506,7 @@ func NewGetDBCommand() cli.Command {
 			if err := initDB(); err != nil {
 				PrintErrorAndExit("get-db: init database: %v", err)
 			}
-			value, err := getDBValue(c.Args()[0], c.Args()[1])
+			value, err := getDBValue(c.Args().Get(0), c.Args().Get(1))
 			if err != nil {
 				PrintErrorAndExit("get-db: %v", err)
 			}
@@ -517,8 +517,8 @@ func NewGetDBCommand() cli.Command {
 	}
 }
 
-func NewCleanDBCommand() cli.Command {
-	return cli.Command{
+func NewCleanDBCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "clean-db",
 		Usage: "clean db by local_prefx and remote_prefix",
 		Action: func(c *cli.Context) error {
@@ -529,14 +529,14 @@ func NewCleanDBCommand() cli.Command {
 			if err := initDB(); err != nil {
 				PrintErrorAndExit("clean-db: init database: %v", err)
 			}
-			delDBValues(c.Args()[0], c.Args()[1])
+			delDBValues(c.Args().Get(0), c.Args().Get(1))
 			return nil
 		},
 	}
 }
 
-func NewUpgradeCommand() cli.Command {
-	return cli.Command{
+func NewUpgradeCommand() *cli.Command {
+	return &cli.Command{
 		Name:  "upgrade",
 		Usage: "upgrade upx to latest version",
 		Action: func(c *cli.Context) error {

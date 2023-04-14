@@ -24,9 +24,9 @@ func GetStartBetweenEndFiles(t *testing.T, src, dst, correct, start, end string)
 		end = path.Join(src, end)
 	}
 	if dst == "" {
-		_, err = Upx("get", src, "--start="+start, "--end="+end)
+		_, err = Upx("get", "--start="+start, "--end="+end, src)
 	} else {
-		_, err = Upx("get", src, dst, "--start="+start, "--end="+end)
+		_, err = Upx("get", "--start="+start, "--end="+end, src, dst)
 	}
 	assert.NoError(t, err)
 }

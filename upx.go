@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 const VERSION = "v0.3.7"
@@ -14,15 +14,13 @@ func CreateUpxApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "upx"
 	app.Usage = "a tool for driving UpYun Storage"
-	app.Author = "Hongbo.Mo"
-	app.Email = "zjutpolym@gmail.com"
 	app.Version = fmt.Sprintf("%s %s/%s %s", VERSION,
 		runtime.GOOS, runtime.GOARCH, runtime.Version())
 	app.EnableBashCompletion = true
 	app.Compiled = time.Now()
 	app.Flags = []cli.Flag{
-		cli.BoolFlag{Name: "quiet, q", Usage: "not verbose"},
-		cli.StringFlag{Name: "auth", Usage: "auth string"},
+		&cli.BoolFlag{Name: "quiet, q", Usage: "not verbose"},
+		&cli.StringFlag{Name: "auth", Usage: "auth string"},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("q") {
@@ -36,7 +34,8 @@ func CreateUpxApp() *cli.App {
 		}
 		return nil
 	}
-	app.Commands = []cli.Command{
+
+	app.Commands = []*cli.Command{
 		NewLoginCommand(),
 		NewLogoutCommand(),
 		NewListSessionsCommand(),
