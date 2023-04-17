@@ -2,6 +2,7 @@ package upx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/upyun/upx/xerrors"
 	"github.com/urfave/cli"
 	"golang.org/x/term"
 )
@@ -18,29 +20,39 @@ const (
 	CHECK    = true
 )
 
-func Init(login bool) {
-	InitAndCheck(login, false, nil)
-}
-
-func InitAndCheck(login, check bool, c *cli.Context) {
+func InitAndCheck(login, check bool, c *cli.Context) (err error) {
 	if login == LOGIN && session == nil {
-		readConfigFromFile(LOGIN)
+		err = readConfigFromFile(LOGIN)
 	}
 	if login == NO_LOGIN {
-		readConfigFromFile(NO_LOGIN)
+		err = readConfigFromFile(NO_LOGIN)
 	}
+
 	if check && c.NArg() == 0 && c.NumFlags() == 0 {
-		cli.ShowCommandHelp(c, c.Command.Name)
-		os.Exit(-1)
+		err = xerrors.ErrInvalidCommand
+	}
+	return
+}
+
+func CreateInitCheckFunc(login, check bool) cli.BeforeFunc {
+	return func(ctx *cli.Context) error {
+		if err := InitAndCheck(login, check, ctx); err != nil {
+			if errors.Is(err, xerrors.ErrInvalidCommand) {
+				cli.ShowCommandHelp(ctx, ctx.Command.Name)
+				return &cli.ExitError{}
+			}
+			return cli.NewExitError(err.Error(), -1)
+		}
+		return nil
 	}
 }
 
 func NewLoginCommand() cli.Command {
 	return cli.Command{
-		Name:  "login",
-		Usage: "Log in to UpYun",
+		Name:   "login",
+		Usage:  "Log in to UpYun",
+		Before: CreateInitCheckFunc(NO_LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(NO_LOGIN)
 			session = &Session{CWD: "/"}
 			args := c.Args()
 			if len(args) == 3 {
@@ -83,10 +95,10 @@ func NewLoginCommand() cli.Command {
 
 func NewLogoutCommand() cli.Command {
 	return cli.Command{
-		Name:  "logout",
-		Usage: "Log out of your UpYun account",
+		Name:   "logout",
+		Usage:  "Log out of your UpYun account",
+		Before: CreateInitCheckFunc(NO_LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(NO_LOGIN)
 			if session != nil {
 				op, bucket := session.Operator, session.Bucket
 				config.PopCurrent()
@@ -121,10 +133,10 @@ func NewAuthCommand() cli.Command {
 
 func NewListSessionsCommand() cli.Command {
 	return cli.Command{
-		Name:  "sessions",
-		Usage: "List all sessions",
+		Name:   "sessions",
+		Usage:  "List all sessions",
+		Before: CreateInitCheckFunc(NO_LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(NO_LOGIN)
 			for k, v := range config.Sessions {
 				if k == config.SessionId {
 					Print("> %s", color.YellowString(v.Bucket))
@@ -139,10 +151,10 @@ func NewListSessionsCommand() cli.Command {
 
 func NewSwitchSessionCommand() cli.Command {
 	return cli.Command{
-		Name:  "switch",
-		Usage: "Switch to specific session",
+		Name:   "switch",
+		Usage:  "Switch to specific session",
+		Before: CreateInitCheckFunc(NO_LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(NO_LOGIN, CHECK, c)
 			bucket := c.Args().First()
 			for k, v := range config.Sessions {
 				if bucket == v.Bucket {
@@ -161,10 +173,10 @@ func NewSwitchSessionCommand() cli.Command {
 
 func NewInfoCommand() cli.Command {
 	return cli.Command{
-		Name:  "info",
-		Usage: "Current session information",
+		Name:   "info",
+		Usage:  "Current session information",
+		Before: CreateInitCheckFunc(LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(LOGIN)
 			session.Info()
 			return nil
 		},
@@ -176,8 +188,8 @@ func NewMkdirCommand() cli.Command {
 		Name:      "mkdir",
 		Usage:     "Make directory",
 		ArgsUsage: "<remote-dir>",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			session.Mkdir(c.Args()...)
 			return nil
 		},
@@ -189,8 +201,8 @@ func NewCdCommand() cli.Command {
 		Name:      "cd",
 		Usage:     "Change directory",
 		ArgsUsage: "<remote-path>",
+		Before:    CreateInitCheckFunc(LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(LOGIN)
 			fpath := "/"
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -204,10 +216,10 @@ func NewCdCommand() cli.Command {
 
 func NewPwdCommand() cli.Command {
 	return cli.Command{
-		Name:  "pwd",
-		Usage: "Print working directory",
+		Name:   "pwd",
+		Usage:  "Print working directory",
+		Before: CreateInitCheckFunc(LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(LOGIN)
 			session.Pwd()
 			return nil
 		},
@@ -219,8 +231,8 @@ func NewLsCommand() cli.Command {
 		Name:      "ls",
 		Usage:     "List directory or file",
 		ArgsUsage: "<remote-path>",
+		Before:    CreateInitCheckFunc(LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(LOGIN)
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -260,8 +272,8 @@ func NewGetCommand() cli.Command {
 		Name:      "get",
 		Usage:     "Get directory or file",
 		ArgsUsage: "[-c] <remote-path> [save-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			upPath := c.Args().First()
 			localPath := "." + string(filepath.Separator)
 
@@ -315,8 +327,8 @@ func NewPutCommand() cli.Command {
 		Name:      "put",
 		Usage:     "Put directory or file",
 		ArgsUsage: "<local-path> [remote-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
 			upPath := "./"
 
@@ -349,8 +361,8 @@ func NewUploadCommand() cli.Command {
 		Name:      "upload",
 		Usage:     "upload multiple directory or file or http url",
 		ArgsUsage: "[local-path...] [url...] [--remote remote-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			if c.Int("w") > 10 || c.Int("w") < 1 {
 				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
@@ -373,8 +385,8 @@ func NewRmCommand() cli.Command {
 		Name:      "rm",
 		Usage:     "Remove directory or file",
 		ArgsUsage: "<remote-path>",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			fpath := c.Args().First()
 			base := path.Base(fpath)
 			dir := path.Dir(fpath)
@@ -416,8 +428,8 @@ func NewTreeCommand() cli.Command {
 		Name:      "tree",
 		Usage:     "List contents of directories in a tree-like format",
 		ArgsUsage: "<remote-path>",
+		Before:    CreateInitCheckFunc(LOGIN, NO_CHECK),
 		Action: func(c *cli.Context) error {
-			Init(LOGIN)
 			fpath := session.CWD
 			if c.NArg() > 0 {
 				fpath = c.Args().First()
@@ -437,8 +449,8 @@ func NewSyncCommand() cli.Command {
 		Name:      "sync",
 		Usage:     "Sync local directory to UpYun",
 		ArgsUsage: "<local-path> [remote-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			localPath := c.Args().First()
 			upPath := session.CWD
 			if c.NArg() > 1 {
@@ -460,10 +472,10 @@ func NewSyncCommand() cli.Command {
 
 func NewPostCommand() cli.Command {
 	return cli.Command{
-		Name:  "post",
-		Usage: "Post async process task",
+		Name:   "post",
+		Usage:  "Post async process task",
+		Before: CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			app := c.String("app")
 			notify := c.String("notify")
 			task := c.String("task")
@@ -480,10 +492,10 @@ func NewPostCommand() cli.Command {
 
 func NewPurgeCommand() cli.Command {
 	return cli.Command{
-		Name:  "purge",
-		Usage: "refresh CDN cache",
+		Name:   "purge",
+		Usage:  "refresh CDN cache",
+		Before: CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			list := c.String("list")
 			session.Purge(c.Args(), list)
 			return nil
@@ -496,10 +508,10 @@ func NewPurgeCommand() cli.Command {
 
 func NewGetDBCommand() cli.Command {
 	return cli.Command{
-		Name:  "get-db",
-		Usage: "get db value",
+		Name:   "get-db",
+		Usage:  "get db value",
+		Before: CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			if c.NArg() != 2 {
 				PrintErrorAndExit("get-db local remote")
 			}
@@ -519,10 +531,10 @@ func NewGetDBCommand() cli.Command {
 
 func NewCleanDBCommand() cli.Command {
 	return cli.Command{
-		Name:  "clean-db",
-		Usage: "clean db by local_prefx and remote_prefix",
+		Name:   "clean-db",
+		Usage:  "clean db by local_prefx and remote_prefix",
+		Before: CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
-			InitAndCheck(LOGIN, CHECK, c)
 			if c.NArg() != 2 {
 				PrintErrorAndExit("clean-db local remote")
 			}

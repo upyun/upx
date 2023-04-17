@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/upyun/upx/xerrors"
 )
 
 const (
@@ -94,7 +96,7 @@ func authStrToConfig(auth string) error {
 	return nil
 }
 
-func readConfigFromFile(login bool) {
+func readConfigFromFile(login bool) error {
 	if confname == "" {
 		confname = getConfigName()
 	}
@@ -103,21 +105,21 @@ func readConfigFromFile(login bool) {
 	if err != nil {
 		os.RemoveAll(confname)
 		if os.IsNotExist(err) && login == NO_LOGIN {
-			return
+			return nil
 		}
-		PrintErrorAndExit("read config: %v", err)
+		return err
 	}
 
 	data, err := base64.StdEncoding.DecodeString(hashEncode(string(b)))
 	if err != nil {
 		os.RemoveAll(confname)
-		PrintErrorAndExit("read config: %v", err)
+		return err
 	}
 
 	config = &Config{SessionId: -1}
 	if err := json.Unmarshal(data, config); err != nil {
 		os.RemoveAll(confname)
-		PrintErrorAndExit("read config: %v", err)
+		return err
 	}
 
 	if config.SessionId != -1 && config.SessionId < len(config.Sessions) {
@@ -125,14 +127,15 @@ func readConfigFromFile(login bool) {
 		if login == LOGIN {
 			if err := session.Init(); err != nil {
 				config.PopCurrent()
-				PrintErrorAndExit("Log in: %v", err)
+				return err
 			}
 		}
 	} else {
 		if login == LOGIN {
-			PrintErrorAndExit("Log in to UpYun first")
+			return xerrors.ErrRequireLogin
 		}
 	}
+	return nil
 }
 
 func saveConfigToFile() {
