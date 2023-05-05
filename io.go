@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gosuri/uiprogress"
+	"github.com/arrebole/progressbar"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 type WrappedWriter struct {
 	w      io.WriteCloser
 	Copyed int
-	bar    *uiprogress.Bar
+	bar    *progressbar.ProgressBar
 }
 
 func (w *WrappedWriter) Write(b []byte) (int, error) {
@@ -34,10 +34,24 @@ func (w *WrappedWriter) Close() error {
 	return w.w.Close()
 }
 
-func NewFileWrappedWriter(localPath string, bar *uiprogress.Bar, resume bool) (*WrappedWriter, error) {
+type WrappedReader struct {
+	r      io.Reader
+	Copyed int
+	bar    *progressbar.ProgressBar
+}
+
+func (r *WrappedReader) Read(b []byte) (int, error) {
+	n, err := r.r.Read(b)
+	r.Copyed += n
+	if r.bar != nil {
+		r.bar.Set(r.Copyed)
+	}
+	return n, err
+}
+
+func NewFileWrappedWriter(localPath string, bar *progressbar.ProgressBar, resume bool) (*WrappedWriter, error) {
 	var fd *os.File
 	var err error
-
 	if resume {
 		fd, err = os.OpenFile(localPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0755)
 	} else {
@@ -52,6 +66,9 @@ func NewFileWrappedWriter(localPath string, bar *uiprogress.Bar, resume bool) (*
 		return nil, err
 	}
 
+	if bar != nil {
+		bar.SetOffset64(fileinfo.Size())
+	}
 	return &WrappedWriter{
 		w:      fd,
 		Copyed: int(fileinfo.Size()),

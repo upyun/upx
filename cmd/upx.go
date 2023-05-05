@@ -7,8 +7,6 @@ import (
 )
 
 func main() {
-	upx.InitProgress()
-	upx.Progress.Start()
-	defer upx.Progress.Stop()
+	upx.EnableProgressbar()
 	upx.CreateUpxApp().Run(os.Args)
 }

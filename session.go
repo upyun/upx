@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/arrebole/progressbar"
 	"github.com/fatih/color"
-	"github.com/gosuri/uiprogress"
 	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/upyun/upx/partial"
 )
@@ -289,7 +289,6 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 	for w := 0; w < workers; w++ {
 		go func() {
 			defer wg.Done()
-			id := -1
 			var e error
 			for fInfo := range fInfoChan {
 				if IsMatched(fInfo, match) {
@@ -317,7 +316,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 						}
 
 						for i := 1; i <= MaxRetry; i++ {
-							id, e = sess.getFileWithProgress(id, fpath, lpath, fInfo, 1, isContinue)
+							e = sess.getFileWithProgress(fpath, lpath, fInfo, 1, isContinue)
 							if e == nil {
 								break
 							}
@@ -347,42 +346,22 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 	return err
 }
 
-func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) (int, error) {
+func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
 	var err error
 
-	var bar *uiprogress.Bar
-	idx := id
+	var bar *progressbar.ProgressBar
 	if upInfo.Size > 0 {
-		bar, idx = AddBar(id, int(upInfo.Size))
-		bar = bar.AppendCompleted()
-		cnt := 0
-		bar.PrependFunc(func(b *uiprogress.Bar) string {
-			status := "WAIT"
-			if b.Current() == b.Total {
-				status = "OK"
-			}
-			name := leftAlign(shortPath(localPath, 40), 40)
-			if err != nil {
-				b.Set(bar.Total)
-				if cnt == 0 {
-					cnt++
-					return fmt.Sprintf("%s ERR %s", name, err)
-				} else {
-					return ""
-				}
-			}
-			return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-		})
+		bar = AddBar(localPath, int(upInfo.Size))
 	}
 
 	dir := filepath.Dir(localPath)
 	if err = os.MkdirAll(dir, 0755); err != nil {
-		return id, err
+		return err
 	}
 
 	w, err := NewFileWrappedWriter(localPath, bar, resume)
 	if err != nil {
-		return id, err
+		return err
 	}
 	defer w.Close()
 
@@ -406,7 +385,7 @@ func (sess *Session) getFileWithProgress(id int, upPath, localPath string, upInf
 	)
 	err = downloader.Download()
 
-	return idx, err
+	return err
 }
 
 func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers int, resume bool) {
@@ -436,7 +415,9 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 				}
 			}
 		}
-		sess.getDir(upPath, localPath, match, workers, resume)
+		if err := sess.getDir(upPath, localPath, match, workers, resume); err != nil {
+			PrintErrorAndExit(err.Error())
+		}
 	} else {
 		if isDir {
 			localPath = filepath.Join(localPath, path.Base(upPath))
@@ -446,7 +427,10 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 		if upInfo.Size < 1024*1024*100 {
 			workers = 1
 		}
-		sess.getFileWithProgress(-1, upPath, localPath, upInfo, workers, resume)
+		err := sess.getFileWithProgress(upPath, localPath, upInfo, workers, resume)
+		if err != nil {
+			PrintErrorAndExit(err.Error())
+		}
 	}
 }
 
@@ -505,14 +489,14 @@ func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *Ma
 	}
 }
 
-func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, localInfo os.FileInfo) (int, error) {
+func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.FileInfo) error {
 	var err error
 	fd, err := os.Open(localPath)
 	if err != nil {
-		return -1, err
+		return err
 	}
 	defer fd.Close()
-	var wg sync.WaitGroup
+
 	cfg := &upyun.PutObjectConfig{
 		Path: upPath,
 		Headers: map[string]string{
@@ -521,37 +505,10 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 		Reader: fd,
 	}
 
-	idx := -1
 	if isVerbose {
 		if localInfo.Size() > 0 {
-			var bar *uiprogress.Bar
-			bar, idx = AddBar(barId, int(localInfo.Size()))
-			bar = bar.AppendCompleted()
-			bar.PrependFunc(func(b *uiprogress.Bar) string {
-				status := "WAIT"
-				if b.Current() == b.Total {
-					status = "OK"
-				}
-				name := leftAlign(shortPath(upPath, 40), 40)
-				if err != nil {
-					b.Set(bar.Total)
-					return fmt.Sprintf("%s ERR %s", name, err)
-				}
-				return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-			})
-			wReader := &ProgressReader{reader: fd}
-			cfg.Reader = wReader
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for err == nil {
-					if wReader.Copyed() == bar.Total {
-						bar.Set(wReader.Copyed())
-						return
-					}
-					bar.Set(wReader.Copyed())
-				}
-			}()
+			bar := AddBar(upPath, int(localInfo.Size()))
+			cfg.Reader = &WrappedReader{r: fd, bar: bar}
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
@@ -561,16 +518,14 @@ func (sess *Session) putFileWithProgress(barId int, localPath, upPath string, lo
 			cfg.MaxResumePutTries = DefaultResumeRetry
 		}
 	}
-
 	err = sess.updriver.Put(cfg)
-	wg.Wait()
 	if !isVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
-	return idx, err
+	return err
 }
 
-func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) (int, error) {
+func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	var size int64
 
 	// 如果可以的话，先从 Head 请求中获取文件长度
@@ -583,7 +538,7 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) (int, erro
 	// 通过get方法获取文件，如果get头中包含Content-Length，则使用get头中的Content-Length
 	resp, err = http.Get(rawURL)
 	if err != nil {
-		return 0, fmt.Errorf("http Get %s error: %v", rawURL, err)
+		return fmt.Errorf("http Get %s error: %v", rawURL, err)
 	}
 	defer resp.Body.Close()
 
@@ -593,59 +548,27 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) (int, erro
 
 	// 如果无法获取 Content-Length 则报错
 	if size == 0 {
-		return 0, fmt.Errorf("get http file Content-Length error: response headers not has Content-Length")
-	}
-
-	wReader := &ProgressReader{
-		reader: resp.Body,
+		return fmt.Errorf("get http file Content-Length error: response headers not has Content-Length")
 	}
 
 	// 创建进度条
-	bar, idx := AddBar(-1, int(size))
-	bar = bar.AppendCompleted()
-	bar.PrependFunc(func(b *uiprogress.Bar) string {
-		status := "WAIT"
-		if b.Current() == b.Total {
-			status = "OK"
-		}
-		name := leftAlign(shortPath(upPath, 40), 40)
-		if err != nil {
-			b.Set(bar.Total)
-			return fmt.Sprintf("%s ERR %s", name, err)
-		}
-		return fmt.Sprintf("%s %s", name, rightAlign(status, 4))
-	})
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			if wReader.Copyed() == bar.Total {
-				bar.Set(wReader.Copyed())
-				return
-			}
-			bar.Set(wReader.Copyed())
-			time.Sleep(time.Millisecond * 20)
-		}
-	}()
+	bar := AddBar(upPath, int(size))
 
 	// 上传文件
 	err = sess.updriver.Put(&upyun.PutObjectConfig{
 		Path:   upPath,
-		Reader: wReader,
+		Reader: &WrappedReader{r: resp.Body, bar: bar},
 		UseMD5: false,
 		Headers: map[string]string{
 			"Content-Length": fmt.Sprint(size),
 		},
 	})
 
-	wg.Wait()
 	if err != nil {
 		PrintErrorAndExit("put file error: %v", err)
 	}
 
-	return idx, nil
+	return nil
 }
 
 func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers int) {
@@ -657,8 +580,7 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 		go func() {
 			defer wg.Done()
 			for task := range tasks {
-				_, err := sess.putFileWithProgress(
-					task.barId,
+				err := sess.putFileWithProgress(
 					task.LocalPath,
 					task.UpPath,
 					task.LocalInfo,
@@ -691,14 +613,13 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 	for w := 0; w < workers; w++ {
 		go func() {
 			defer wg.Done()
-			barId := -1
 			for info := range localFiles {
 				rel, _ := filepath.Rel(localPath, info.fpath)
 				desPath := path.Join(upPath, filepath.ToSlash(rel))
 				if fInfo, err := os.Stat(info.fpath); err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
 				} else {
-					barId, err = sess.putFileWithProgress(barId, info.fpath, desPath, info.fInfo)
+					err = sess.putFileWithProgress(info.fpath, desPath, info.fInfo)
 				}
 				if err != nil {
 					return
@@ -720,7 +641,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 	wg.Wait()
 }
 
-// Put 上传单文件或单目录
+// / Put 上传单文件或单目录
 func (sess *Session) Put(localPath, upPath string, workers int) {
 	upPath = sess.AbsPath(upPath)
 
@@ -753,11 +674,10 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 				PrintErrorAndExit("missing file name in the url, must has remote path name")
 			}
 		}
-		_, err := sess.putRemoteFileWithProgress(localPath, upPath)
+		err := sess.putRemoteFileWithProgress(localPath, upPath)
 		if err != nil {
 			PrintErrorAndExit(err.Error())
 		}
-		return
 	}
 
 	localInfo, err := os.Stat(localPath)
@@ -778,11 +698,11 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 		if isDir {
 			upPath = path.Join(upPath, filepath.Base(localPath))
 		}
-		sess.putFileWithProgress(-1, localPath, upPath, localInfo)
+		sess.putFileWithProgress(localPath, upPath, localInfo)
 	}
 }
 
-// Copy put的升级版命令
+// put 的升级版命令, 支持多文件上传
 func (sess *Session) Upload(filenames []string, upPath string, workers int) {
 	upPath = sess.AbsPath(upPath)
 
