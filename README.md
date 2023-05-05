@@ -26,14 +26,14 @@
 
 ### 可执行程序二进制下载地址
 
-- [Windows x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Windows_x86_64.zip)
-- [Windows i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Windows_i386.zip)
-- [Mac x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_Darwin_x86_64.tar.gz)
-- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_x86_64.tar.gz)
-- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_i386.tar.gz)
-- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_arm64.tar.gz)
-- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_armv6.tar.gz)
-- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.7_linux_armv7.tar.gz)
+- [Windows x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_Windows_x86_64.zip)
+- [Windows i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_Windows_i386.zip)
+- [Mac x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_Darwin_x86_64.tar.gz)
+- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_linux_x86_64.tar.gz)
+- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_linux_i386.tar.gz)
+- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_linux_arm64.tar.gz)
+- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_linux_armv6.tar.gz)
+- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.3.8_linux_armv7.tar.gz)
 
 ### 源码编译
 
@@ -46,7 +46,7 @@ $ cd upx && make
 or
 
 ```
-$ GO111MODULE=on go get -u github.com/upyun/upx@v0.3.7
+$ go get -u github.com/upyun/upx@v0.3.8
 ```
 
 ### Windows
@@ -216,7 +216,7 @@ upx ls [options...] [remote-path]
 
 查看根目录下的文件
 ```bash
-upx ls / 
+upx ls /
 ```
 
 只查看根目录下的目录

@@ -1,10 +1,9 @@
-env:
-  - GO111MODULE=on
 before:
   hooks:
     - go mod download
 builds:
   - id: "upx"
+    main: ./cmd/
     env:
       - CGO_ENABLED=0
     binary: upx
