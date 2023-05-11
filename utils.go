@@ -4,9 +4,12 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -153,5 +156,24 @@ func contains(slice []string, item string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// 判断文件是否是隐藏文件
+func isIgnoreFile(filepath string, fileInfo fs.FileInfo) bool {
+	for _, item := range strings.Split(filepath, "/") {
+		if strings.HasPrefix(item, ".") {
+			return true
+		}
+	}
+
+	if runtime.GOOS == "windows" {
+		fa := reflect.ValueOf(fileInfo.Sys()).Elem().FieldByName("FileAttributes").Uint()
+		bytefa := []byte(strconv.FormatUint(fa, 2))
+		if len(bytefa) >= 2 {
+			return bytefa[len(bytefa)-2] == '1'
+		}
+	}
+
 	return false
 }

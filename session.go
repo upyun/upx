@@ -601,7 +601,7 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 	wg.Wait()
 }
 
-func (sess *Session) putDir(localPath, upPath string, workers int) {
+func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool) {
 	type FileInfo struct {
 		fpath string
 		fInfo os.FileInfo
@@ -629,11 +629,19 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 	}
 
 	walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
-		if err == nil {
-			localFiles <- &FileInfo{
-				fpath: fpath,
-				fInfo: fInfo,
-			}
+		if err != nil {
+			return
+		}
+
+		// 如果需要排除隐藏的文件
+		// 文件的目录中或文件名中存在 . 开头的都会被排除
+		if !withIgnore && isIgnoreFile(fpath, fInfo) {
+			return
+		}
+
+		localFiles <- &FileInfo{
+			fpath: fpath,
+			fInfo: fInfo,
 		}
 	})
 
@@ -642,7 +650,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 }
 
 // / Put 上传单文件或单目录
-func (sess *Session) Put(localPath, upPath string, workers int) {
+func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool) {
 	upPath = sess.AbsPath(upPath)
 
 	exist, isDir := false, false
@@ -693,7 +701,7 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 				upPath = path.Join(upPath, filepath.Base(localPath))
 			}
 		}
-		sess.putDir(localPath, upPath, workers)
+		sess.putDir(localPath, upPath, workers, withIgnore)
 	} else {
 		if isDir {
 			upPath = path.Join(upPath, filepath.Base(localPath))
@@ -703,7 +711,7 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 }
 
 // put 的升级版命令, 支持多文件上传
-func (sess *Session) Upload(filenames []string, upPath string, workers int) {
+func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool) {
 	upPath = sess.AbsPath(upPath)
 
 	// 检测云端的目的地目录
@@ -741,7 +749,12 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int) {
 
 	// 上传目录
 	for _, localPath := range dirs {
-		sess.putDir(localPath, path.Join(upPath, filepath.Base(localPath)), workers)
+		sess.putDir(
+			localPath,
+			path.Join(upPath, filepath.Base(localPath)),
+			workers,
+			withIgnore,
+		)
 	}
 
 	// 上传文件

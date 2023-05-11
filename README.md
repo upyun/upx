@@ -363,7 +363,7 @@ upx get -c /baima_text_auditer.tar
 | options | 说明                          |
 |---------|-----------------------------|
 | -w | 多线程下载 (1-10) (default: 5) |
-
+| -all |  包含 `.` 开头的文件， 默认排除 `.` 开头的文件和文件夹 |
 #### 语法
 ```bash
 upx put <local-file> [remote-file]
@@ -391,6 +391,7 @@ upx put ./video /myfiles
 | options | 说明                          |
 |---------|-----------------------------|
 | -w | 多线程下载 (1-10) (default: 5) |
+| -all |  包含 `.` 开头的文件， 默认排除 `.` 开头的文件和文件夹 |
 | --remote | 远程路径 |
 
 #### 语法
