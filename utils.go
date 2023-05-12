@@ -4,12 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/fs"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -137,43 +132,11 @@ func md5File(fpath string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-func walk(root string, f func(string, os.FileInfo, error)) {
-	fi, err := os.Stat(root)
-	if err == nil && fi != nil && fi.IsDir() {
-		fInfos, err := ioutil.ReadDir(root)
-		f(root, fi, err)
-		for _, fInfo := range fInfos {
-			walk(filepath.Join(root, fInfo.Name()), f)
-		}
-	} else {
-		f(root, fi, err)
-	}
-}
-
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true
 		}
 	}
-	return false
-}
-
-// 判断文件是否是隐藏文件
-func isIgnoreFile(filepath string, fileInfo fs.FileInfo) bool {
-	for _, item := range strings.Split(filepath, "/") {
-		if strings.HasPrefix(item, ".") {
-			return true
-		}
-	}
-
-	if runtime.GOOS == "windows" {
-		fa := reflect.ValueOf(fileInfo.Sys()).Elem().FieldByName("FileAttributes").Uint()
-		bytefa := []byte(strconv.FormatUint(fa, 2))
-		if len(bytefa) >= 2 {
-			return bytefa[len(bytefa)-2] == '1'
-		}
-	}
-
 	return false
 }

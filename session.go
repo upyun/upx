@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -20,6 +21,7 @@ import (
 	"github.com/arrebole/progressbar"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
+	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
 )
 
@@ -496,7 +498,6 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		return err
 	}
 	defer fd.Close()
-
 	cfg := &upyun.PutObjectConfig{
 		Path: upPath,
 		Headers: map[string]string{
@@ -602,19 +603,23 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 }
 
 func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool) {
+	localAbsPath, err := filepath.Abs(localPath)
+	if err != nil {
+		PrintErrorAndExit(err.Error())
+	}
+
 	type FileInfo struct {
 		fpath string
 		fInfo os.FileInfo
 	}
 	localFiles := make(chan *FileInfo, workers*2)
 	var wg sync.WaitGroup
-	var err error
 	wg.Add(workers)
 	for w := 0; w < workers; w++ {
 		go func() {
 			defer wg.Done()
 			for info := range localFiles {
-				rel, _ := filepath.Rel(localPath, info.fpath)
+				rel, _ := filepath.Rel(localAbsPath, info.fpath)
 				desPath := path.Join(upPath, filepath.ToSlash(rel))
 				if fInfo, err := os.Stat(info.fpath); err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
@@ -628,21 +633,21 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 		}()
 	}
 
-	walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
+	filepath.Walk(localAbsPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			return
+			return err
 		}
-
-		// 如果需要排除隐藏的文件
-		// 文件的目录中或文件名中存在 . 开头的都会被排除
-		if !withIgnore && isIgnoreFile(fpath, fInfo) {
-			return
+		if !withIgnore && fsutil.IsIgnoreFile(path, info) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+		} else {
+			localFiles <- &FileInfo{
+				fpath: path,
+				fInfo: info,
+			}
 		}
-
-		localFiles <- &FileInfo{
-			fpath: fpath,
-			fInfo: fInfo,
-		}
+		return nil
 	})
 
 	close(localFiles)
