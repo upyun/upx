@@ -607,6 +607,14 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 	if err != nil {
 		PrintErrorAndExit(err.Error())
 	}
+	// 如果上传的是目录，并且是隐藏的目录，则触发提示
+	rootDirInfo, err := os.Stat(localAbsPath)
+	if err != nil {
+		PrintErrorAndExit(err.Error())
+	}
+	if !withIgnore && fsutil.IsIgnoreFile(localAbsPath, rootDirInfo) {
+		PrintErrorAndExit("%s is a ignore dir, use `-all` to force put all files", localAbsPath)
+	}
 
 	type FileInfo struct {
 		fpath string
