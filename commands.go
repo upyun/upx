@@ -347,11 +347,13 @@ func NewPutCommand() cli.Command {
 				localPath,
 				upPath,
 				c.Int("w"),
+				c.Bool("all"),
 			)
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
 		},
 	}
 }
@@ -370,10 +372,12 @@ func NewUploadCommand() cli.Command {
 				c.Args(),
 				c.String("remote"),
 				c.Int("w"),
+				c.Bool("all"),
 			)
 			return nil
 		},
 		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
 		},

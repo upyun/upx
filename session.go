@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -20,6 +21,7 @@ import (
 	"github.com/arrebole/progressbar"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
+	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
 )
 
@@ -496,7 +498,6 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		return err
 	}
 	defer fd.Close()
-
 	cfg := &upyun.PutObjectConfig{
 		Path: upPath,
 		Headers: map[string]string{
@@ -601,20 +602,32 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 	wg.Wait()
 }
 
-func (sess *Session) putDir(localPath, upPath string, workers int) {
+func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool) {
+	localAbsPath, err := filepath.Abs(localPath)
+	if err != nil {
+		PrintErrorAndExit(err.Error())
+	}
+	// 如果上传的是目录，并且是隐藏的目录，则触发提示
+	rootDirInfo, err := os.Stat(localAbsPath)
+	if err != nil {
+		PrintErrorAndExit(err.Error())
+	}
+	if !withIgnore && fsutil.IsIgnoreFile(localAbsPath, rootDirInfo) {
+		PrintErrorAndExit("%s is a ignore dir, use `-all` to force put all files", localAbsPath)
+	}
+
 	type FileInfo struct {
 		fpath string
 		fInfo os.FileInfo
 	}
 	localFiles := make(chan *FileInfo, workers*2)
 	var wg sync.WaitGroup
-	var err error
 	wg.Add(workers)
 	for w := 0; w < workers; w++ {
 		go func() {
 			defer wg.Done()
 			for info := range localFiles {
-				rel, _ := filepath.Rel(localPath, info.fpath)
+				rel, _ := filepath.Rel(localAbsPath, info.fpath)
 				desPath := path.Join(upPath, filepath.ToSlash(rel))
 				if fInfo, err := os.Stat(info.fpath); err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
@@ -628,13 +641,21 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 		}()
 	}
 
-	walk(localPath, func(fpath string, fInfo os.FileInfo, err error) {
-		if err == nil {
+	filepath.Walk(localAbsPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !withIgnore && fsutil.IsIgnoreFile(path, info) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+		} else {
 			localFiles <- &FileInfo{
-				fpath: fpath,
-				fInfo: fInfo,
+				fpath: path,
+				fInfo: info,
 			}
 		}
+		return nil
 	})
 
 	close(localFiles)
@@ -642,7 +663,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int) {
 }
 
 // / Put 上传单文件或单目录
-func (sess *Session) Put(localPath, upPath string, workers int) {
+func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool) {
 	upPath = sess.AbsPath(upPath)
 
 	exist, isDir := false, false
@@ -693,7 +714,7 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 				upPath = path.Join(upPath, filepath.Base(localPath))
 			}
 		}
-		sess.putDir(localPath, upPath, workers)
+		sess.putDir(localPath, upPath, workers, withIgnore)
 	} else {
 		if isDir {
 			upPath = path.Join(upPath, filepath.Base(localPath))
@@ -703,7 +724,7 @@ func (sess *Session) Put(localPath, upPath string, workers int) {
 }
 
 // put 的升级版命令, 支持多文件上传
-func (sess *Session) Upload(filenames []string, upPath string, workers int) {
+func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool) {
 	upPath = sess.AbsPath(upPath)
 
 	// 检测云端的目的地目录
@@ -741,7 +762,12 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int) {
 
 	// 上传目录
 	for _, localPath := range dirs {
-		sess.putDir(localPath, path.Join(upPath, filepath.Base(localPath)), workers)
+		sess.putDir(
+			localPath,
+			path.Join(upPath, filepath.Base(localPath)),
+			workers,
+			withIgnore,
+		)
 	}
 
 	// 上传文件
