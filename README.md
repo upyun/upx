@@ -86,6 +86,8 @@ docker run --rm upx upx -v
 | [get](#get)      | 下载一个文件或目录 |
 | [put](#put)      | 上传一个文件或目录 |
 | [upload](#upload)   | 上传多个文件或目录或 http(s) 文件, 支持 Glob 模式过滤上传文件|
+| [mv](#mv)   | 在同一 bucket 内移动文件|
+| [cp](#cp)   | 在同一 bucket 内复制文件 |
 | [rm](#rm)       | 删除目录或文件 |
 | [sync](#sync)     | 目录增量同步，类似 rsync |
 | [auth](#auth)     | 生成包含空间名操作员密码信息的 auth 字符串 |
@@ -440,6 +442,64 @@ upx rm -d /www
 删除文件 `/aaa.png`
 ```bash
 upx rm /aaa.png
+```
+
+## mv
+
+> 在 `bucket` 内部移动文件
+
+|  args  | 说明 |
+| --------- | ---- |
+| source-file | 需要移动的源文件 |
+| dest-file | 需要移动到的目标文件 |
+
+|  options  | 说明 |
+| --------- | ---- |
+| -f       | 允许覆盖目标文件 |
+
+#### 语法
+```bash
+upx mv [options] <source-file> <dest-file>
+```
+
+#### 示例
+移动文件
+```bash
+upx mv /aaa.mp4 /abc/aaa.mp4
+```
+
+移动文件，如果目标存在则强制覆盖
+```bash
+upx mv -f /aaa.mp4 /abc/aaa.mp4
+```
+
+## cp
+
+> 在 `bucket` 内部拷贝文件
+
+|  args  | 说明 |
+| --------- | ---- |
+| source-file | 需要复制的源文件 |
+| dest-file | 需要复制到的目标文件 |
+
+|  options  | 说明 |
+| --------- | ---- |
+| -f       | 允许覆盖目标文件 |
+
+#### 语法
+```bash
+upx mv [options] <source-file> <dest-file>
+```
+
+#### 示例
+移动文件
+```bash
+upx cp /aaa.mp4 /abc/aaa.mp4
+```
+
+复制文件，如果目标存在则强制覆盖
+```bash
+upx cp -f /aaa.mp4 /abc/aaa.mp4
 ```
 
 ## sync

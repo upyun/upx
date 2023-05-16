@@ -58,6 +58,8 @@ func CreateUpxApp() *cli.App {
 		NewGetDBCommand(),
 		NewCleanDBCommand(),
 		NewUpgradeCommand(),
+		NewCopyCommand(),
+		NewMoveCommand(),
 	}
 	return app
 }
