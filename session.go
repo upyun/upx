@@ -1230,3 +1230,93 @@ func (sess *Session) Purge(urls []string, file string) {
 		PrintErrorAndExit("purge error: %v", err)
 	}
 }
+
+func (sess *Session) Copy(srcPath, destPath string, force bool) error {
+	return sess.copyMove(srcPath, destPath, "copy", force)
+}
+
+func (sess *Session) Move(srcPath, destPath string, force bool) error {
+	return sess.copyMove(srcPath, destPath, "move", force)
+}
+
+// 移动或者复制
+// method: "move" | "copy"
+// force: 是否覆盖目标文件
+func (sess *Session) copyMove(srcPath, destPath, method string, force bool) error {
+	// 将源文件路径转化为绝对路径
+	srcPath = sess.AbsPath(srcPath)
+
+	// 检测源文件
+	sourceFileInfo, err := sess.updriver.GetInfo(srcPath)
+	if err != nil {
+		if upyun.IsNotExist(err) {
+			return fmt.Errorf("source file %s is not exist", srcPath)
+		}
+		return err
+	}
+	if sourceFileInfo.IsDir {
+		return fmt.Errorf("not support copy dir, %s is dir", srcPath)
+	}
+
+	// 将目标路径转化为绝对路径
+	destPath = sess.AbsPath(destPath)
+
+	destFileInfo, err := sess.updriver.GetInfo(destPath)
+	// 如果返回的错误不是文件不存在错误，则返回错误
+	if err != nil && !upyun.IsNotExist(err) {
+		return err
+	}
+	// 如果没有错误，表示文件存在，则检测文件类型，并判断是否允许覆盖
+	if err == nil {
+		if !destFileInfo.IsDir {
+			// 如果目标文件是文件类型，则需要使用强制覆盖
+			if !force {
+				return fmt.Errorf(
+					"target path %s already exists use -f to force overwrite",
+					destPath,
+				)
+			}
+		} else {
+			// 补全文件名后，再次检测文件存不存在
+			destPath = path.Join(destPath, path.Base(srcPath))
+			destFileInfo, err := sess.updriver.GetInfo(destPath)
+			if err == nil {
+				if destFileInfo.IsDir {
+					return fmt.Errorf(
+						"target file %s already exists and is dir",
+						destPath,
+					)
+				}
+				if !force {
+					return fmt.Errorf(
+						"target file %s already exists use -f to force overwrite",
+						destPath,
+					)
+				}
+			}
+		}
+	}
+
+	if srcPath == destPath {
+		return fmt.Errorf(
+			"source and target are the same %s => %s",
+			srcPath,
+			destPath,
+		)
+	}
+
+	switch method {
+	case "copy":
+		return sess.updriver.Copy(&upyun.CopyObjectConfig{
+			SrcPath:  srcPath,
+			DestPath: destPath,
+		})
+	case "move":
+		return sess.updriver.Move(&upyun.MoveObjectConfig{
+			SrcPath:  srcPath,
+			DestPath: destPath,
+		})
+	default:
+		return fmt.Errorf("not support method")
+	}
+}

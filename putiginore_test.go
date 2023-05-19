@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,6 +55,8 @@ func TestPutIgnore(t *testing.T) {
 		[]string{"FILE1", "FILE2"},
 	)
 
+	time.Sleep(time.Second)
+
 	// 上传隐藏的文件夹, 无all，上传失效
 	Upx(
 		"put",
@@ -70,6 +73,8 @@ func TestPutIgnore(t *testing.T) {
 		[]string{"FILE1", "FILE2"},
 	)
 
+	time.Sleep(time.Second)
+
 	// 上传隐藏的文件夹, 有all，上传成功
 	Upx(
 		"put",
@@ -85,6 +90,8 @@ func TestPutIgnore(t *testing.T) {
 		files,
 		[]string{"FILE1", "FILE2", ".FILES"},
 	)
+
+	time.Sleep(time.Second)
 
 	// 上传所有文件
 	Upx("put", "-all", localRootPath, upRootPath)

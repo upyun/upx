@@ -561,3 +561,45 @@ func NewUpgradeCommand() cli.Command {
 		},
 	}
 }
+
+func NewCopyCommand() cli.Command {
+	return cli.Command{
+		Name:      "cp",
+		Usage:     "copy files inside cloud storage",
+		ArgsUsage: "[remote-source-path] [remote-target-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
+		Action: func(c *cli.Context) error {
+			if c.NArg() != 2 {
+				PrintErrorAndExit("invalid command args")
+			}
+			if err := session.Copy(c.Args()[0], c.Args()[1], c.Bool("f")); err != nil {
+				PrintErrorAndExit(err.Error())
+			}
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "f", Usage: "Force overwrite existing files"},
+		},
+	}
+}
+
+func NewMoveCommand() cli.Command {
+	return cli.Command{
+		Name:      "mv",
+		Usage:     "move files inside cloud storage",
+		ArgsUsage: "[remote-source-path] [remote-target-path]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
+		Action: func(c *cli.Context) error {
+			if c.NArg() != 2 {
+				PrintErrorAndExit("invalid command args")
+			}
+			if err := session.Move(c.Args()[0], c.Args()[1], c.Bool("f")); err != nil {
+				PrintErrorAndExit(err.Error())
+			}
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.BoolFlag{Name: "f", Usage: "Force overwrite existing files"},
+		},
+	}
+}
