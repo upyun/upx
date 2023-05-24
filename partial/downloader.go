@@ -8,7 +8,9 @@ import (
 	"sync"
 )
 
-const DefaultChunkSize = 1024 * 1024 * 10
+type Downloader interface {
+	Download() error
+}
 
 type ChunkDownFunc func(start, end int64) ([]byte, error)
 
@@ -31,7 +33,7 @@ type MultiPartialDownloader struct {
 	downFunc ChunkDownFunc
 }
 
-func NewMultiPartialDownloader(filePath string, finalSize, chunkSize int64, writer io.Writer, works int, fn ChunkDownFunc) *MultiPartialDownloader {
+func NewMultiPartialDownloader(filePath string, finalSize, chunkSize int64, writer io.Writer, works int, fn ChunkDownFunc) Downloader {
 	return &MultiPartialDownloader{
 		filePath:  filePath,
 		finalSize: finalSize,
@@ -100,7 +102,12 @@ func (p *MultiPartialDownloader) Download() error {
 					if end > p.finalSize {
 						end = p.finalSize
 					}
-					chunk := NewChunk(int64(j), start, end)
+
+					chunk := &Chunk{
+						index: int64(j),
+						start: start,
+						end:   end,
+					}
 
 					// 重试三次
 					for t := 0; t < 3; t++ {
