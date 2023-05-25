@@ -571,7 +571,6 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		}
 
 		// 上传分片任务
-		fmt.Println(skips)
 		uploader := partial.NewMultiPartialUploader(
 			DefaultBlockSize,
 			fd,
@@ -614,7 +613,7 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 			return err
 		}
 		// 上传完成删除记录
-		cache.DeleteByUploadID(initResult.UploadID)
+		cache.DeleteUpload(upPath, initResult.UploadID)
 	} else {
 		cfg := &upyun.PutObjectConfig{
 			Path: upPath,

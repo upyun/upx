@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -28,18 +27,7 @@ type MutUpload struct {
 }
 
 func (p *MutUpload) Key() string {
-	fingerprint := fmt.Sprintf(
-		"%s:%s:%d:%d",
-		p.Path,
-		p.UpPath,
-		p.Size,
-		p.PartSize,
-	)
-
-	return fmt.Sprintf(
-		"mutupload-%x",
-		md5.Sum([]byte(fingerprint)),
-	)
+	return fmt.Sprintf("mutupload-%s", p.UpPath)
 }
 
 // 查询分片上传任务
@@ -53,7 +41,7 @@ func FindMutUpload(fn func(key string, entity *MutUpload) bool) ([]*MutUpload, e
 		}
 
 		// 删除过期的分片上传记录
-		if time.Since(item.CreateAt).Hours() > 12 {
+		if time.Since(item.CreateAt).Hours() > 24 {
 			FindMutUploadPart(func(key string, part *MutUploadPart) bool {
 				if part.UploadID == item.UploadID {
 					db.Delete([]byte(key), nil)
@@ -124,22 +112,15 @@ func AddMutUploadPart(entity *MutUploadPart) error {
 	if err != nil {
 		return err
 	}
-
 	return db.Put([]byte(entity.Key()), data, nil)
 }
 
-func DeleteByUploadID(uploadID string) error {
-	FindMutUpload(func(key string, entity *MutUpload) bool {
-		if entity.UploadID == uploadID {
-			Delete(key)
-		}
-		return false
+func DeleteUpload(upPath, uploadID string) error {
+	Range("mutupload-"+upPath, func(key, data []byte) {
+		Delete(string(key))
 	})
-	FindMutUploadPart(func(key string, entity *MutUploadPart) bool {
-		if entity.UploadID == uploadID {
-			Delete(key)
-		}
-		return false
+	Range("part-"+uploadID, func(key, data []byte) {
+		Delete(string(key))
 	})
 	return nil
 }
