@@ -46,7 +46,7 @@ $ cd upx && make
 or
 
 ```
-$ go get -u github.com/upyun/upx@v0.4.0
+$ go get -u github.com/upyun/upx/cmd/upx@master
 ```
 
 ### Windows
