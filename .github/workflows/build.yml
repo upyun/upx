@@ -25,5 +25,5 @@ jobs:
 
       - name: Build
         run: |
-          go build -v ./cmd/upx.go
+          go build -v ./cmd/upx
           ./upx -v

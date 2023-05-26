@@ -50,5 +50,5 @@ jobs:
         run: go mod download
       - name: Test
         run: |
-          go build -v ./cmd/upx.go
+          go build -v ./cmd/upx
           go test -v ./...
