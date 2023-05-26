@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-go@v2
       - name: Build Upx
         run: |
-          go build ./cmd/upx.go
+          go build ./cmd/upx
           ./upx login "${{ env.UPYUN_RELEASE_BUCKET }}" "${{ env.UPYUN_RELEASE_USERNAME }}" "${{ env.UPYUN_RELEASE_PASSWORD }}"
       -
         name: Run GoReleaser

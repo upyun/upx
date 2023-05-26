@@ -8,7 +8,7 @@ PROJ_DIR= $(ROOT)/src/upyun.com
 PWD= $(shell pwd)
 
 app:
-	go build -o $(APP) ./cmd/upx.go
+	go build -o $(APP) ./cmd/upx/
 
 test:
 	go test -v .
