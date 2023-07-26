@@ -19,11 +19,22 @@ linters:
     - goimports
     - goprintffuncname
     - govet
-    - interfacer
     - misspell
     - nolintlint
-    - scopelint
+    - exportloopref
     - typecheck
     - unconvert
     - unparam
     - whitespace
+
+linters-settings:
+  depguard:
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com
+      test:
+        allow:
+          - $gostd
+          - github.com
