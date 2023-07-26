@@ -368,8 +368,12 @@ func NewUploadCommand() cli.Command {
 			if c.Int("w") > 10 || c.Int("w") < 1 {
 				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
+			filenames := c.Args()
+			if isWindowsGOOS() {
+				filenames = globFiles(filenames)
+			}
 			session.Upload(
-				c.Args(),
+				filenames,
 				c.String("remote"),
 				c.Int("w"),
 				c.Bool("all"),

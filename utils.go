@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -139,4 +141,19 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func globFiles(patterns []string) []string {
+	filenames := make([]string, 0)
+	for _, filename := range patterns {
+		matches, err := filepath.Glob(filename)
+		if err == nil {
+			filenames = append(filenames, matches...)
+		}
+	}
+	return filenames
+}
+
+func isWindowsGOOS() bool {
+	return runtime.GOOS == "windows"
 }
