@@ -21,6 +21,7 @@ import (
 	"github.com/arrebole/progressbar"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
+	"github.com/upyun/upx/cache"
 	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
 )
@@ -370,7 +371,7 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 	downloader := partial.NewMultiPartialDownloader(
 		localPath,
 		upInfo.Size,
-		partial.DefaultChunkSize,
+		DefaultBlockSize,
 		w,
 		works,
 		func(start, end int64) ([]byte, error) {
@@ -491,35 +492,142 @@ func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *Ma
 	}
 }
 
-func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.FileInfo) error {
+func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.FileInfo, workers int, resume bool) error {
 	var err error
 	fd, err := os.Open(localPath)
 	if err != nil {
 		return err
 	}
 	defer fd.Close()
-	cfg := &upyun.PutObjectConfig{
-		Path: upPath,
-		Headers: map[string]string{
-			"Content-Length": fmt.Sprint(localInfo.Size()),
-		},
-		Reader: fd,
-	}
 
+	var bar *progressbar.ProgressBar
 	if isVerbose {
 		if localInfo.Size() > 0 {
-			bar := AddBar(upPath, int(localInfo.Size()))
-			cfg.Reader = &WrappedReader{r: fd, bar: bar}
+			bar = AddBar(upPath, int(localInfo.Size()))
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
-		if localInfo.Size() >= MinResumePutFileSize {
-			cfg.UseResumeUpload = true
-			cfg.ResumePartSize = DefaultBlockSize
-			cfg.MaxResumePutTries = DefaultResumeRetry
-		}
 	}
-	err = sess.updriver.Put(cfg)
+
+	// 如果文件大小超过指标，会进行分片多线程下载
+	// 如果开启断续上传
+	// 1. 查询是否有过断续上传记录
+	// 2. 如果有断续上传记录，继续检测文件是否被修改
+	// 		如果文件被修改，则重新上传
+	// 		如果文件没有被修改，则跳过已经上传的分片
+	if localInfo.Size() >= MinResumePutFileSize {
+		var offset int64
+		var initResult *upyun.InitMultipartUploadResult
+		var skips = make(map[int64]bool)
+		if resume {
+			// 获取已经上传的内容
+			cache.FindMutUpload(func(key string, entity *cache.MutUpload) bool {
+				if entity.UpPath == upPath && entity.Path == localPath && entity.Size == localInfo.Size() {
+					initResult = &upyun.InitMultipartUploadResult{
+						UploadID: entity.UploadID,
+						Path:     entity.Path,
+						PartSize: entity.PartSize,
+					}
+				}
+				return false
+			})
+			// 如果存在已经上传，则恢复
+			// 查询已经上传的分片, 设置进度条偏移量，如果分片id已经被记录，则跳过上传
+			if initResult != nil {
+				cache.FindMutUploadPart(func(key string, entity *cache.MutUploadPart) bool {
+					if entity.UploadID == initResult.UploadID {
+						if _, ok := skips[entity.PartId]; !ok {
+							offset += entity.Len
+						}
+						skips[entity.PartId] = true
+					}
+					return false
+				})
+			}
+		}
+
+		// 如果没有历史的分片任务，则创建分片任务
+		if initResult == nil {
+			initResult, err = sess.updriver.InitMultipartUpload(&upyun.InitMultipartUploadConfig{
+				Path:     upPath,
+				PartSize: DefaultBlockSize,
+			})
+			if err != nil {
+				return err
+			}
+			cache.AddMutUpload(&cache.MutUpload{
+				UploadID: initResult.UploadID,
+				Path:     localPath,
+				UpPath:   upPath,
+				PartSize: initResult.PartSize,
+				Size:     localInfo.Size(),
+				CreateAt: time.Now(),
+			})
+		}
+
+		// 设置已经上传成功的偏移量
+		if bar != nil {
+			bar.SetOffset64(offset)
+		}
+
+		// 上传分片任务
+		uploader := partial.NewMultiPartialUploader(
+			DefaultBlockSize,
+			fd,
+			workers,
+			func(partId int64, body []byte) error {
+				if _, ok := skips[partId]; ok {
+					return nil
+				}
+				err := sess.updriver.UploadPart(initResult, &upyun.UploadPartConfig{
+					PartID:   int(partId),
+					Reader:   bytes.NewReader(body),
+					PartSize: int64(len(body)),
+				})
+				if err != nil && err.(*upyun.Error).Code == 40011061 {
+					err = nil
+				}
+
+				// 记录分片上传完成
+				if err == nil {
+					if bar != nil {
+						bar.Add(len(body))
+					}
+					cache.AddMutUploadPart(&cache.MutUploadPart{
+						UploadID: initResult.UploadID,
+						PartId:   partId,
+						Len:      int64(len(body)),
+					})
+				}
+				return err
+			},
+		)
+
+		if err = uploader.Upload(); err != nil {
+			return err
+		}
+
+		// 完成分片上传
+		err = sess.updriver.CompleteMultipartUpload(initResult, nil)
+		if err != nil {
+			return err
+		}
+		// 上传完成删除记录
+		cache.DeleteUpload(upPath, initResult.UploadID)
+	} else {
+		cfg := &upyun.PutObjectConfig{
+			Path: upPath,
+			Headers: map[string]string{
+				"Content-Length": fmt.Sprint(localInfo.Size()),
+			},
+			Reader: fd,
+		}
+		if bar != nil {
+			cfg.Reader = &WrappedReader{r: fd, bar: bar}
+		}
+		err = sess.updriver.Put(cfg)
+	}
+
 	if !isVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
@@ -572,7 +680,7 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	return nil
 }
 
-func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers int) {
+func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers int, resume bool) {
 	var wg sync.WaitGroup
 
 	tasks := make(chan *UploadedFile, workers*2)
@@ -585,6 +693,8 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 					task.LocalPath,
 					task.UpPath,
 					task.LocalInfo,
+					1,
+					resume,
 				)
 				if err != nil {
 					fmt.Println("putFileWithProgress error: ", err.Error())
@@ -602,7 +712,7 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 	wg.Wait()
 }
 
-func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool) {
+func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool, resume bool) {
 	localAbsPath, err := filepath.Abs(localPath)
 	if err != nil {
 		PrintErrorAndExit(err.Error())
@@ -632,7 +742,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 				if fInfo, err := os.Stat(info.fpath); err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
 				} else {
-					err = sess.putFileWithProgress(info.fpath, desPath, info.fInfo)
+					err = sess.putFileWithProgress(info.fpath, desPath, info.fInfo, 1, resume)
 				}
 				if err != nil {
 					return
@@ -663,7 +773,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 }
 
 // / Put 上传单文件或单目录
-func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool) {
+func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool, resume bool) {
 	upPath = sess.AbsPath(upPath)
 
 	exist, isDir := false, false
@@ -714,17 +824,17 @@ func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool)
 				upPath = path.Join(upPath, filepath.Base(localPath))
 			}
 		}
-		sess.putDir(localPath, upPath, workers, withIgnore)
+		sess.putDir(localPath, upPath, workers, withIgnore, resume)
 	} else {
 		if isDir {
 			upPath = path.Join(upPath, filepath.Base(localPath))
 		}
-		sess.putFileWithProgress(localPath, upPath, localInfo)
+		sess.putFileWithProgress(localPath, upPath, localInfo, workers, resume)
 	}
 }
 
 // put 的升级版命令, 支持多文件上传
-func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool) {
+func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool, resume bool) {
 	upPath = sess.AbsPath(upPath)
 
 	// 检测云端的目的地目录
@@ -733,6 +843,7 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int, with
 		upPathExist = true
 		upPathIsDir = upInfo.IsDir
 	}
+
 	// 多文件上传 upPath 如果存在则只能是目录
 	if upPathExist && !upPathIsDir {
 		PrintErrorAndExit("upload: %s: Not a directory", upPath)
@@ -767,11 +878,12 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int, with
 			path.Join(upPath, filepath.Base(localPath)),
 			workers,
 			withIgnore,
+			resume,
 		)
 	}
 
 	// 上传文件
-	sess.putFilesWitchProgress(uploadedFile, workers)
+	sess.putFilesWitchProgress(uploadedFile, workers, resume)
 }
 
 func (sess *Session) rm(fpath string, isAsync bool, isFolder bool) {
@@ -1157,6 +1269,7 @@ func (sess *Session) Sync(localPath, upPath string, workers int, delete, strong 
 		}
 	}
 }
+
 func (sess *Session) PostTask(app, notify, taskFile string) {
 	fd, err := os.Open(taskFile)
 	if err != nil {

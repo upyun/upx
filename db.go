@@ -6,10 +6,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/upyun/upx/cache"
 )
 
 var db *leveldb.DB
@@ -31,18 +32,20 @@ type dbValue struct {
 	Items      []*fileMeta `json:"items"`
 }
 
-func getDBName() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
-	}
-	return filepath.Join(os.Getenv("HOME"), ".upx.db")
-}
-
 func makeDBKey(src, dst string) ([]byte, error) {
 	return json.Marshal(&dbKey{
 		SrcPath: src,
 		DstPath: path.Join(session.Bucket, dst),
 	})
+}
+
+func parseDBKey(key []byte) (*dbKey, error) {
+	dbkey := &dbKey{}
+	err := json.Unmarshal(
+		key,
+		dbkey,
+	)
+	return dbkey, err
 }
 
 func makeDBValue(filename string, md5 bool) (*dbValue, error) {
@@ -120,16 +123,17 @@ func delDBValue(src, dst string) error {
 
 func delDBValues(srcPrefix, dstPrefix string) {
 	dstPrefix = path.Join(session.Bucket, dstPrefix)
-	iter := db.NewIterator(nil, nil)
+	iter := db.NewIterator(
+		util.BytesPrefix([]byte("{")),
+		nil,
+	)
 	if ok := iter.First(); !ok {
 		return
 	}
 	for {
-		k := new(dbKey)
-		key := iter.Key()
-		err := json.Unmarshal(key, k)
+		k, err := parseDBKey(iter.Key())
 		if err != nil {
-			PrintError("decode %s: %v", string(key), err)
+			PrintError("decode %s: %v", string(iter.Key()), err)
 		}
 		if strings.HasPrefix(k.SrcPath, srcPrefix) && strings.HasPrefix(k.DstPath, dstPrefix) {
 			PrintOnlyVerbose("found %s => %s to delete", k.SrcPath, k.DstPath)
@@ -182,9 +186,9 @@ func diffFileMetas(src []*fileMeta, dst []*fileMeta) []*fileMeta {
 }
 
 func initDB() (err error) {
-	db, err = leveldb.OpenFile(getDBName(), nil)
+	db, err = cache.GetClient()
 	if err != nil {
-		Print("db %v %s", err, getDBName())
+		Print("db %v %s", err, cache.GetDBName())
 	}
 	return err
 }

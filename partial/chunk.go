@@ -21,15 +21,6 @@ type Chunk struct {
 	buffer []byte
 }
 
-func NewChunk(index, start, end int64) *Chunk {
-	chunk := &Chunk{
-		start: start,
-		end:   end,
-		index: index,
-	}
-	return chunk
-}
-
 func (p *Chunk) SetData(bytes []byte) {
 	p.buffer = bytes
 }
