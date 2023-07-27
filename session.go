@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cheggaaa/pb/v3"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/upyun/upx/fsutil"
@@ -352,7 +351,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
 	var err error
 
-	var bar *pb.ProgressBar
+	var bar *processbar.UpxProcessBar
 	if upInfo.Size > 0 {
 		bar = processbar.NewProcessBar(localPath, 0, upInfo.Size)
 	}
@@ -387,8 +386,7 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 		},
 	)
 	err = downloader.Download()
-	processbar.FinishBar(bar)
-
+	bar.Finish()
 	return err
 }
 
@@ -508,7 +506,7 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		Reader: fd,
 	}
 
-	var bar *pb.ProgressBar
+	var bar *processbar.UpxProcessBar
 	if isVerbose {
 		if localInfo.Size() > 0 {
 			bar = processbar.NewProcessBar(upPath, 0, localInfo.Size())
@@ -523,7 +521,7 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		}
 	}
 	err = sess.updriver.Put(cfg)
-	processbar.FinishBar(bar)
+	bar.Finish()
 
 	if !isVerbose {
 		log.Printf("file: %s, Done\n", upPath)
@@ -569,7 +567,7 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 			"Content-Length": fmt.Sprint(size),
 		},
 	})
-	processbar.FinishBar(bar)
+	bar.Finish()
 
 	if err != nil {
 		PrintErrorAndExit("put file error: %v", err)

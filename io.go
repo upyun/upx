@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cheggaaa/pb/v3"
 	"github.com/upyun/upx/processbar"
 )
 
@@ -16,7 +15,7 @@ var (
 	mu        = &sync.Mutex{}
 )
 
-func NewFileWrappedWriter(localPath string, bar *pb.ProgressBar, resume bool) (io.WriteCloser, error) {
+func NewFileWrappedWriter(localPath string, bar *processbar.UpxProcessBar, resume bool) (io.WriteCloser, error) {
 	var fd *os.File
 	var err error
 	if resume {
@@ -36,12 +35,12 @@ func NewFileWrappedWriter(localPath string, bar *pb.ProgressBar, resume bool) (i
 	if bar != nil {
 		bar.SetCurrent(fileinfo.Size())
 	}
-	defer processbar.StartBar(bar)
+	defer bar.StartBar()
 	return bar.NewProxyWriter(fd), nil
 }
 
-func NewFileWrappedReader(bar *pb.ProgressBar, fd io.Reader) io.ReadCloser {
-	defer processbar.StartBar(bar)
+func NewFileWrappedReader(bar *processbar.UpxProcessBar, fd io.Reader) io.ReadCloser {
+	defer bar.StartBar()
 	return bar.NewProxyReader(fd)
 }
 
