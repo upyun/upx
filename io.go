@@ -7,7 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/arrebole/progressbar"
+	"github.com/cheggaaa/pb/v3"
+	"github.com/upyun/upx/processbar"
 )
 
 var (
@@ -15,41 +16,7 @@ var (
 	mu        = &sync.Mutex{}
 )
 
-type WrappedWriter struct {
-	w      io.WriteCloser
-	Copyed int
-	bar    *progressbar.ProgressBar
-}
-
-func (w *WrappedWriter) Write(b []byte) (int, error) {
-	n, err := w.w.Write(b)
-	w.Copyed += n
-	if w.bar != nil {
-		w.bar.Set(w.Copyed)
-	}
-	return n, err
-}
-
-func (w *WrappedWriter) Close() error {
-	return w.w.Close()
-}
-
-type WrappedReader struct {
-	r      io.Reader
-	Copyed int
-	bar    *progressbar.ProgressBar
-}
-
-func (r *WrappedReader) Read(b []byte) (int, error) {
-	n, err := r.r.Read(b)
-	r.Copyed += n
-	if r.bar != nil {
-		r.bar.Set(r.Copyed)
-	}
-	return n, err
-}
-
-func NewFileWrappedWriter(localPath string, bar *progressbar.ProgressBar, resume bool) (*WrappedWriter, error) {
+func NewFileWrappedWriter(localPath string, bar *pb.ProgressBar, resume bool) (io.WriteCloser, error) {
 	var fd *os.File
 	var err error
 	if resume {
@@ -67,13 +34,15 @@ func NewFileWrappedWriter(localPath string, bar *progressbar.ProgressBar, resume
 	}
 
 	if bar != nil {
-		bar.SetOffset64(fileinfo.Size())
+		bar.SetCurrent(fileinfo.Size())
 	}
-	return &WrappedWriter{
-		w:      fd,
-		Copyed: int(fileinfo.Size()),
-		bar:    bar,
-	}, nil
+	defer processbar.StartBar(bar)
+	return bar.NewProxyWriter(fd), nil
+}
+
+func NewFileWrappedReader(bar *pb.ProgressBar, fd io.Reader) io.ReadCloser {
+	defer processbar.StartBar(bar)
+	return bar.NewProxyReader(fd)
 }
 
 func Print(arg0 string, args ...interface{}) {

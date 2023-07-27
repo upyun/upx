@@ -18,11 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arrebole/progressbar"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
+	"github.com/upyun/upx/processbar"
 )
 
 const (
@@ -351,9 +352,9 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
 	var err error
 
-	var bar *progressbar.ProgressBar
+	var bar *pb.ProgressBar
 	if upInfo.Size > 0 {
-		bar = AddBar(localPath, int(upInfo.Size))
+		bar = processbar.NewProcessBar(localPath, 0, upInfo.Size)
 	}
 
 	dir := filepath.Dir(localPath)
@@ -386,6 +387,7 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 		},
 	)
 	err = downloader.Download()
+	processbar.FinishBar(bar)
 
 	return err
 }
@@ -506,10 +508,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		Reader: fd,
 	}
 
+	var bar *pb.ProgressBar
 	if isVerbose {
 		if localInfo.Size() > 0 {
-			bar := AddBar(upPath, int(localInfo.Size()))
-			cfg.Reader = &WrappedReader{r: fd, bar: bar}
+			bar = processbar.NewProcessBar(upPath, 0, localInfo.Size())
+			cfg.Reader = NewFileWrappedReader(bar, fd)
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
@@ -520,6 +523,8 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		}
 	}
 	err = sess.updriver.Put(cfg)
+	processbar.FinishBar(bar)
+
 	if !isVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
@@ -553,17 +558,18 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	}
 
 	// 创建进度条
-	bar := AddBar(upPath, int(size))
+	bar := processbar.NewProcessBar(upPath, 0, size)
 
 	// 上传文件
 	err = sess.updriver.Put(&upyun.PutObjectConfig{
 		Path:   upPath,
-		Reader: &WrappedReader{r: resp.Body, bar: bar},
+		Reader: NewFileWrappedReader(bar, resp.Body),
 		UseMD5: false,
 		Headers: map[string]string{
 			"Content-Length": fmt.Sprint(size),
 		},
 	})
+	processbar.FinishBar(bar)
 
 	if err != nil {
 		PrintErrorAndExit("put file error: %v", err)

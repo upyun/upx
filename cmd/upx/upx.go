@@ -4,9 +4,11 @@ import (
 	"os"
 
 	"github.com/upyun/upx"
+	"github.com/upyun/upx/processbar"
 )
 
 func main() {
-	upx.EnableProgressbar()
+	processbar.EnableProgressbar()
 	upx.CreateUpxApp().Run(os.Args)
+	processbar.WaitProgressbar()
 }
