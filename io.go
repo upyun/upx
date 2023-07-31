@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	isVerbose = true
+	IsVerbose = true
 	mu        = &sync.Mutex{}
 )
 
@@ -35,12 +35,10 @@ func NewFileWrappedWriter(localPath string, bar *processbar.UpxProcessBar, resum
 	if bar != nil {
 		bar.SetCurrent(fileinfo.Size())
 	}
-	defer bar.StartBar()
 	return bar.NewProxyWriter(fd), nil
 }
 
 func NewFileWrappedReader(bar *processbar.UpxProcessBar, fd io.Reader) io.ReadCloser {
-	defer bar.StartBar()
 	return bar.NewProxyReader(fd)
 }
 
@@ -58,7 +56,7 @@ func Print(arg0 string, args ...interface{}) {
 }
 
 func PrintOnlyVerbose(arg0 string, args ...interface{}) {
-	if isVerbose {
+	if IsVerbose {
 		Print(arg0, args...)
 	}
 }

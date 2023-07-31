@@ -353,7 +353,7 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 
 	var bar *processbar.UpxProcessBar
 	if upInfo.Size > 0 {
-		bar = processbar.NewProcessBar(localPath, 0, upInfo.Size)
+		bar = processbar.NewProcessBar(localPath, upInfo.Size)
 	}
 
 	dir := filepath.Dir(localPath)
@@ -367,6 +367,9 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 	}
 	defer w.Close()
 
+	if bar != nil {
+		bar.Start()
+	}
 	downloader := partial.NewMultiPartialDownloader(
 		localPath,
 		upInfo.Size,
@@ -507,10 +510,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 	}
 
 	var bar *processbar.UpxProcessBar
-	if isVerbose {
+	if IsVerbose {
 		if localInfo.Size() > 0 {
-			bar = processbar.NewProcessBar(upPath, 0, localInfo.Size())
+			bar = processbar.NewProcessBar(upPath, localInfo.Size())
 			cfg.Reader = NewFileWrappedReader(bar, fd)
+			bar.Start()
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
@@ -521,9 +525,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		}
 	}
 	err = sess.updriver.Put(cfg)
-	bar.Finish()
+	if bar != nil {
+		bar.Finish()
+	}
 
-	if !isVerbose {
+	if !IsVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
 	return err
@@ -556,12 +562,14 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	}
 
 	// 创建进度条
-	bar := processbar.NewProcessBar(upPath, 0, size)
+	bar := processbar.NewProcessBar(upPath, size)
+	reader := NewFileWrappedReader(bar, resp.Body)
+	bar.Start()
 
 	// 上传文件
 	err = sess.updriver.Put(&upyun.PutObjectConfig{
 		Path:   upPath,
-		Reader: NewFileWrappedReader(bar, resp.Body),
+		Reader: reader,
 		UseMD5: false,
 		Headers: map[string]string{
 			"Content-Length": fmt.Sprint(size),

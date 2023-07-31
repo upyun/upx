@@ -8,7 +8,9 @@ import (
 )
 
 func main() {
-	processbar.EnableProgressbar()
+	if upx.IsVerbose {
+		processbar.EnableProgressbar()
+		defer processbar.WaitProgressbar()
+	}
 	upx.CreateUpxApp().Run(os.Args)
-	processbar.WaitProgressbar()
 }
