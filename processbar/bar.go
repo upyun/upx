@@ -1,72 +1,56 @@
 package processbar
 
 import (
-	"io"
 	"sync"
 	"time"
 
-	"github.com/cheggaaa/pb/v3"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
-
-var (
-	enableBar bool = false
-	wg        sync.WaitGroup
-)
-
-func EnableProgressbar() {
-	enableBar = true
-}
 
 type UpxProcessBar struct {
-	bar *pb.ProgressBar
+	process *mpb.Progress
+	enable  bool
 }
 
-func (p *UpxProcessBar) SetCurrent(value int64) {
-	p.bar.SetCurrent(value)
+var ProcessBar = &UpxProcessBar{
+	process: mpb.New(
+		mpb.WithWidth(100),
+		mpb.WithRefreshRate(180*time.Millisecond),
+		mpb.WithWaitGroup(&sync.WaitGroup{}),
+	),
+	enable: false,
 }
 
-func (p *UpxProcessBar) Start() *UpxProcessBar {
-	if !enableBar {
-		return p
+func (p *UpxProcessBar) Enable() {
+	p.enable = true
+}
+
+func (p *UpxProcessBar) AddBar(name string, total int64) *mpb.Bar {
+	if !p.enable {
+		return nil
 	}
 
-	p.bar.Set("speed", 0)
-	p.bar.Start()
-	wg.Add(1)
+	bar := p.process.AddBar(0,
+		mpb.PrependDecorators(
+			decor.Name(leftAlign(shortPath(name, 30), 30), decor.WCSyncWidth),
+			decor.Counters(decor.SizeB1024(0), "%.2f / %.2f", decor.WCSyncWidth),
+		),
+		mpb.AppendDecorators(
+			decor.NewPercentage("%d", decor.WCSyncWidth),
+			decor.OnComplete(
+				decor.Name("...", decor.WCSyncWidth), " done",
+			),
+			decor.AverageSpeed(decor.SizeB1024(0), " %.1f", decor.WCSyncWidth),
+		))
 
-	// 避免小文件传输过快导致最后计算速度异常, 此处进行短暂睡眠
-	time.Sleep(time.Millisecond * 100)
-	return p
+	bar.SetTotal(total, false)
+	bar.DecoratorAverageAdjust(time.Now())
+	return bar
 }
 
-func (p *UpxProcessBar) Finish() {
-	if !enableBar {
-		return
+func (p *UpxProcessBar) Wait() {
+	if p.enable {
+		p.process.Wait()
 	}
-	if !p.bar.IsFinished() {
-		p.bar.Finish()
-	}
-	wg.Done()
-}
-
-func (p *UpxProcessBar) NewProxyWriter(r io.Writer) io.WriteCloser {
-	return p.bar.NewProxyWriter(r)
-}
-
-func (p *UpxProcessBar) NewProxyReader(r io.Reader) io.ReadCloser {
-	return p.bar.NewProxyReader(r)
-}
-
-func NewProcessBar(filename string, limit int64) *UpxProcessBar {
-	bar := pb.Full.New(int(limit))
-	bar.SetTemplateString(
-		`{{ with string . "filename" }}{{.}}  {{end}}{{ percent . }} {{ bar . "[" ("=" | green) (cycle . "=>" | green ) "-" "]" }} ({{counters . }}, {{speed . "%s/s" "100"}})`,
-	)
-	bar.SetRefreshRate(time.Millisecond * 20)
-	bar.Set("filename", leftAlign(shortPath(filename, 30), 30))
-	return &UpxProcessBar{bar}
-}
-
-func WaitProgressbar() {
-	wg.Wait()
 }

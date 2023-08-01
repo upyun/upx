@@ -23,6 +23,7 @@ import (
 	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
 	"github.com/upyun/upx/processbar"
+	"github.com/vbauerster/mpb/v8"
 )
 
 const (
@@ -351,9 +352,9 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
 	var err error
 
-	var bar *processbar.UpxProcessBar
+	var bar *mpb.Bar
 	if upInfo.Size > 0 {
-		bar = processbar.NewProcessBar(localPath, upInfo.Size)
+		bar = processbar.ProcessBar.AddBar(localPath, upInfo.Size)
 	}
 
 	dir := filepath.Dir(localPath)
@@ -367,9 +368,6 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 	}
 	defer w.Close()
 
-	if bar != nil {
-		bar.Start()
-	}
 	downloader := partial.NewMultiPartialDownloader(
 		localPath,
 		upInfo.Size,
@@ -389,7 +387,12 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 		},
 	)
 	err = downloader.Download()
-	bar.Finish()
+	if bar != nil {
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
+	}
 	return err
 }
 
@@ -509,12 +512,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		Reader: fd,
 	}
 
-	var bar *processbar.UpxProcessBar
+	var bar *mpb.Bar
 	if IsVerbose {
 		if localInfo.Size() > 0 {
-			bar = processbar.NewProcessBar(upPath, localInfo.Size())
+			bar = processbar.ProcessBar.AddBar(upPath, localInfo.Size())
 			cfg.Reader = NewFileWrappedReader(bar, fd)
-			bar.Start()
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
@@ -526,9 +528,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 	}
 	err = sess.updriver.Put(cfg)
 	if bar != nil {
-		bar.Finish()
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
 	}
-
 	if !IsVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
@@ -562,9 +566,8 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	}
 
 	// 创建进度条
-	bar := processbar.NewProcessBar(upPath, size)
+	bar := processbar.ProcessBar.AddBar(upPath, size)
 	reader := NewFileWrappedReader(bar, resp.Body)
-	bar.Start()
 
 	// 上传文件
 	err = sess.updriver.Put(&upyun.PutObjectConfig{
@@ -575,8 +578,12 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 			"Content-Length": fmt.Sprint(size),
 		},
 	})
-	bar.Finish()
-
+	if bar != nil {
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
+	}
 	if err != nil {
 		PrintErrorAndExit("put file error: %v", err)
 	}
