@@ -18,11 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arrebole/progressbar"
 	"github.com/fatih/color"
 	"github.com/upyun/go-sdk/v3/upyun"
 	"github.com/upyun/upx/fsutil"
 	"github.com/upyun/upx/partial"
+	"github.com/upyun/upx/processbar"
+	"github.com/vbauerster/mpb/v8"
 )
 
 const (
@@ -351,9 +352,9 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
 	var err error
 
-	var bar *progressbar.ProgressBar
+	var bar *mpb.Bar
 	if upInfo.Size > 0 {
-		bar = AddBar(localPath, int(upInfo.Size))
+		bar = processbar.ProcessBar.AddBar(localPath, upInfo.Size)
 	}
 
 	dir := filepath.Dir(localPath)
@@ -386,7 +387,12 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 		},
 	)
 	err = downloader.Download()
-
+	if bar != nil {
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
+	}
 	return err
 }
 
@@ -506,10 +512,11 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		Reader: fd,
 	}
 
-	if isVerbose {
+	var bar *mpb.Bar
+	if IsVerbose {
 		if localInfo.Size() > 0 {
-			bar := AddBar(upPath, int(localInfo.Size()))
-			cfg.Reader = &WrappedReader{r: fd, bar: bar}
+			bar = processbar.ProcessBar.AddBar(upPath, localInfo.Size())
+			cfg.Reader = NewFileWrappedReader(bar, fd)
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
@@ -520,7 +527,13 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 		}
 	}
 	err = sess.updriver.Put(cfg)
-	if !isVerbose {
+	if bar != nil {
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
+	}
+	if !IsVerbose {
 		log.Printf("file: %s, Done\n", upPath)
 	}
 	return err
@@ -553,18 +566,24 @@ func (sess *Session) putRemoteFileWithProgress(rawURL, upPath string) error {
 	}
 
 	// 创建进度条
-	bar := AddBar(upPath, int(size))
+	bar := processbar.ProcessBar.AddBar(upPath, size)
+	reader := NewFileWrappedReader(bar, resp.Body)
 
 	// 上传文件
 	err = sess.updriver.Put(&upyun.PutObjectConfig{
 		Path:   upPath,
-		Reader: &WrappedReader{r: resp.Body, bar: bar},
+		Reader: reader,
 		UseMD5: false,
 		Headers: map[string]string{
 			"Content-Length": fmt.Sprint(size),
 		},
 	})
-
+	if bar != nil {
+		bar.EnableTriggerComplete()
+		if err != nil {
+			bar.Abort(false)
+		}
+	}
 	if err != nil {
 		PrintErrorAndExit("put file error: %v", err)
 	}

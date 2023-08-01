@@ -26,7 +26,7 @@ func CreateUpxApp() *cli.App {
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("q") {
-			isVerbose = false
+			IsVerbose = false
 		}
 		if c.String("auth") != "" {
 			err := authStrToConfig(c.String("auth"))

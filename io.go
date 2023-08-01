@@ -7,49 +7,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/arrebole/progressbar"
+	"github.com/vbauerster/mpb/v8"
 )
 
 var (
-	isVerbose = true
+	IsVerbose = true
 	mu        = &sync.Mutex{}
 )
 
-type WrappedWriter struct {
-	w      io.WriteCloser
-	Copyed int
-	bar    *progressbar.ProgressBar
-}
-
-func (w *WrappedWriter) Write(b []byte) (int, error) {
-	n, err := w.w.Write(b)
-	w.Copyed += n
-	if w.bar != nil {
-		w.bar.Set(w.Copyed)
-	}
-	return n, err
-}
-
-func (w *WrappedWriter) Close() error {
-	return w.w.Close()
-}
-
-type WrappedReader struct {
-	r      io.Reader
-	Copyed int
-	bar    *progressbar.ProgressBar
-}
-
-func (r *WrappedReader) Read(b []byte) (int, error) {
-	n, err := r.r.Read(b)
-	r.Copyed += n
-	if r.bar != nil {
-		r.bar.Set(r.Copyed)
-	}
-	return n, err
-}
-
-func NewFileWrappedWriter(localPath string, bar *progressbar.ProgressBar, resume bool) (*WrappedWriter, error) {
+func NewFileWrappedWriter(localPath string, bar *mpb.Bar, resume bool) (io.WriteCloser, error) {
 	var fd *os.File
 	var err error
 	if resume {
@@ -66,14 +32,18 @@ func NewFileWrappedWriter(localPath string, bar *progressbar.ProgressBar, resume
 		return nil, err
 	}
 
-	if bar != nil {
-		bar.SetOffset64(fileinfo.Size())
+	if bar == nil {
+		return fd, nil
 	}
-	return &WrappedWriter{
-		w:      fd,
-		Copyed: int(fileinfo.Size()),
-		bar:    bar,
-	}, nil
+	bar.SetCurrent(fileinfo.Size())
+	return bar.ProxyWriter(fd), nil
+}
+
+func NewFileWrappedReader(bar *mpb.Bar, fd io.ReadCloser) io.ReadCloser {
+	if bar == nil {
+		return fd
+	}
+	return bar.ProxyReader(fd)
 }
 
 func Print(arg0 string, args ...interface{}) {
@@ -90,7 +60,7 @@ func Print(arg0 string, args ...interface{}) {
 }
 
 func PrintOnlyVerbose(arg0 string, args ...interface{}) {
-	if isVerbose {
+	if IsVerbose {
 		Print(arg0, args...)
 	}
 }
