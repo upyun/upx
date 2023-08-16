@@ -29,11 +29,11 @@
 - [Windows x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Windows_x86_64.zip)
 - [Windows i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Windows_i386.zip)
 - [Mac x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Darwin_x86_64.tar.gz)
-- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_linux_x86_64.tar.gz)
-- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_linux_i386.tar.gz)
-- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_linux_arm64.tar.gz)
-- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_linux_armv6.tar.gz)
-- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_linux_armv7.tar.gz)
+- [Linux x86_64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Linux_x86_64.tar.gz)
+- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Linux_i386.tar.gz)
+- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Linux_arm64.tar.gz)
+- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Linux_armv6.tar.gz)
+- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.3_Linux_armv7.tar.gz)
 
 ### 源码编译
 
