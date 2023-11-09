@@ -383,6 +383,11 @@ upx put aaa.mp4 /video/aaa.mp4
 upx put ./video /myfiles
 ```
 
+上传 url 文件，到远程绝对路径
+```bash
+ upx put https://xxxx.com/myfile.tar.gz /myfiles
+```
+
 ## upload
 > 上传文件或目录，支持多文件，文件名匹配
 
@@ -407,11 +412,6 @@ upx upload [--remote remote-path] <local-file>
 上传当前路径下的所有 `jpg` 图片到 `/images` 目录
 ```
 upx upload --remote /images ./*.jpg
-```
-
-上传 `http` 文件到 `/files` 目录
-```
-upx upload --remote /files https://xxxx.com/myfile.tar.gz
 ```
 
 ## rm
