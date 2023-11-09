@@ -360,6 +360,7 @@ upx get -c /baima_text_auditer.tar
 |  args  | 说明 |
 | --------- | ---- |
 | local-file | 本地的文件或文件夹 |
+| url | 远端 url 文件 | 
 | remote-file | 需要保存到的远程文件路径或文件夹 |
 
 | options | 说明                          |
@@ -368,7 +369,7 @@ upx get -c /baima_text_auditer.tar
 | -all |  上传包含目录下隐藏的文件和文件夹 |
 #### 语法
 ```bash
-upx put <local-file> [remote-file]
+upx put <local-file>|<url> [remote-file]
 ```
 
 #### 示例
@@ -383,7 +384,7 @@ upx put ./video /myfiles
 ```
 
 ## upload
-> 上传文件或目录或 url 链接，支持多文件，文件名匹配
+> 上传文件或目录，支持多文件，文件名匹配
 
 |  args  | 说明 |
 | --------- | ---- |

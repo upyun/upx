@@ -718,6 +718,7 @@ func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool)
 		if err != nil {
 			PrintErrorAndExit(err.Error())
 		}
+		return
 	}
 
 	localInfo, err := os.Stat(localPath)

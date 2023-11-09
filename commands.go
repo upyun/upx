@@ -326,7 +326,7 @@ func NewPutCommand() cli.Command {
 	return cli.Command{
 		Name:      "put",
 		Usage:     "Put directory or file",
-		ArgsUsage: "<local-path> [remote-path]",
+		ArgsUsage: "<local-path>|<url> [remote-path]",
 		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
 			localPath := c.Args().First()
@@ -361,8 +361,8 @@ func NewPutCommand() cli.Command {
 func NewUploadCommand() cli.Command {
 	return cli.Command{
 		Name:      "upload",
-		Usage:     "upload multiple directory or file or http url",
-		ArgsUsage: "[local-path...] [url...] [--remote remote-path]",
+		Usage:     "upload multiple directory or file",
+		ArgsUsage: "[local-path...] [--remote remote-path]",
 		Before:    CreateInitCheckFunc(LOGIN, CHECK),
 		Action: func(c *cli.Context) error {
 			if c.Int("w") > 10 || c.Int("w") < 1 {
