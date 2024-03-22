@@ -1275,7 +1275,7 @@ func (sess *Session) copyMove(srcPath, destPath, method string, force bool) erro
 		return err
 	}
 	if sourceFileInfo.IsDir {
-		return fmt.Errorf("not support copy dir, %s is dir", srcPath)
+		return fmt.Errorf("not support dir, %s is dir", srcPath)
 	}
 
 	// 将目标路径转化为绝对路径

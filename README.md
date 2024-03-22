@@ -539,6 +539,10 @@ upx sync ./workspace /workspace
 upx auth mybucket user password
 ```
 
+```bash
+upx --auth=auth-string put temp.file
+```
+
 
 ## post
 
