@@ -535,10 +535,12 @@ upx sync ./workspace /workspace
 #### 示例
 当命令中包含 `--auth` 参数时，会忽略已登陆的信息。
 
+生成 auth 字符串 
 ```bash
 upx auth mybucket user password
 ```
 
+通过生成的 auth 字符串上传文件
 ```bash
 upx --auth=auth-string put temp.file
 ```
