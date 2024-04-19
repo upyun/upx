@@ -391,6 +391,11 @@ upx put ./video /myfiles
  upx put https://xxxx.com/myfile.tar.gz /myfiles
 ```
 
+保存上传文件的错误日志
+```bash
+upx put . --err-log=err.log
+```
+
 ## upload
 > 上传文件或目录，支持多文件，文件名匹配
 
@@ -415,6 +420,11 @@ upx upload [--remote remote-path] <local-file>
 上传当前路径下的所有 `jpg` 图片到 `/images` 目录
 ```
 upx upload --remote /images ./*.jpg
+```
+
+保存上传文件的错误日志
+```bash
+upx upload . --err-log=1.log
 ```
 
 ## rm
