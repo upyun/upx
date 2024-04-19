@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-const VERSION = "v0.4.5"
+const VERSION = "v0.4.6"
 
 func CreateUpxApp() *cli.App {
 	app := cli.NewApp()
