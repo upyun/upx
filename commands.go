@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -343,6 +344,15 @@ func NewPutCommand() cli.Command {
 			if c.Int("w") > 10 || c.Int("w") < 1 {
 				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
+			errLog := c.String("err-log")
+			if errLog != "" {
+				f, err := os.OpenFile(errLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					PrintErrorAndExit("open error log file: %v", err)
+				}
+				defer f.Close()
+				log.SetOutput(f)
+			}
 			session.Put(
 				localPath,
 				upPath,
@@ -354,6 +364,7 @@ func NewPutCommand() cli.Command {
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
+			cli.StringFlag{Name: "err-log", Usage: "upload file error log to file"},
 		},
 	}
 }
@@ -372,6 +383,15 @@ func NewUploadCommand() cli.Command {
 			if isWindowsGOOS() {
 				filenames = globFiles(filenames)
 			}
+			errLog := c.String("err-log")
+			if errLog != "" {
+				f, err := os.OpenFile(errLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					PrintErrorAndExit("open error log file: %v", err)
+				}
+				defer f.Close()
+				log.SetOutput(f)
+			}
 			session.Upload(
 				filenames,
 				c.String("remote"),
@@ -384,6 +404,7 @@ func NewUploadCommand() cli.Command {
 			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
+			cli.StringFlag{Name: "err-log", Usage: "upload file error log to file"},
 		},
 	}
 }

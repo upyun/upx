@@ -648,12 +648,18 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 			for info := range localFiles {
 				rel, _ := filepath.Rel(localAbsPath, info.fpath)
 				desPath := path.Join(upPath, filepath.ToSlash(rel))
-				if fInfo, err := os.Stat(info.fpath); err == nil && fInfo.IsDir() {
+				fInfo, err := os.Stat(info.fpath)
+				if err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
 				} else {
 					err = sess.putFileWithProgress(info.fpath, desPath, info.fInfo)
 				}
 				if err != nil {
+					log.Printf("put %s to %s error: %s", info.fpath, desPath, err)
+					if upyun.IsTooManyRequests(err) {
+						time.Sleep(time.Second)
+						continue
+					}
 					return
 				}
 			}
