@@ -165,7 +165,7 @@ func (sess *Session) FormatUpInfo(upInfo *upyun.FileInfo) string {
 
 func (sess *Session) Init() error {
 	sess.scores = make(map[int]int)
-	PrintOnlyVerbose("hosts %v\n", sess.Hosts)
+	// PrintOnlyVerbose("hosts %v\n", sess.Hosts)
 	sess.updriver = upyun.NewUpYun(&upyun.UpYunConfig{
 		Bucket:    sess.Bucket,
 		Operator:  sess.Operator,
@@ -336,7 +336,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 						}
 					}
 					if e != nil {
-						return
+						continue
 					}
 				}
 			}

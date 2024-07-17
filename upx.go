@@ -5,6 +5,9 @@ import (
 	"runtime"
 	"time"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/urfave/cli"
 )
 
@@ -23,6 +26,7 @@ func CreateUpxApp() *cli.App {
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{Name: "quiet, q", Usage: "not verbose"},
 		cli.StringFlag{Name: "auth", Usage: "auth string"},
+		cli.StringFlag{Name: "pprof-addr", Usage: "enable pprof"},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.Bool("q") {
@@ -33,6 +37,11 @@ func CreateUpxApp() *cli.App {
 			if err != nil {
 				PrintErrorAndExit("%s: invalid auth string", c.Command.FullName())
 			}
+		}
+		if c.String("pprof-addr") != "" {
+			go func() {
+				http.ListenAndServe(c.String("pprof-addr"), nil)
+			}()
 		}
 		return nil
 	}

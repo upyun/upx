@@ -303,8 +303,8 @@ func NewGetCommand() cli.Command {
 					PrintErrorAndExit("get %s: parse mtime: %v", upPath, err)
 				}
 			}
-			if c.Int("w") > 10 || c.Int("w") < 1 {
-				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
+			if c.Int("w") > 50 || c.Int("w") < 1 {
+				PrintErrorAndExit("max concurrent threads must between (1 - 50)")
 			}
 			if mc.Start != "" || mc.End != "" {
 				session.GetStartBetweenEndFiles(upPath, localPath, mc, c.Int("w"))
