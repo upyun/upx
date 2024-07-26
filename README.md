@@ -26,17 +26,17 @@
 
 ### 可执行程序二进制下载地址
 
-- [Windows amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_windows_amd64.zip)
-- [Windows arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_windows_arm64.zip)
-- [Windows armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_windows_armv6.zip)
-- [Windows armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_windows_armv7.zip)
-- [Mac amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_darwin_amd64.tar.gz)
-- [Mac arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_darwin_arm64.tar.gz)
-- [Linux amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_linux_amd64.tar.gz)
-- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_linux_386.tar.gz)
-- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_linux_arm64.tar.gz)
-- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_linux_armv6.tar.gz)
-- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.6_linux_armv7.tar.gz)
+- [Windows amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_windows_amd64.zip)
+- [Windows arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_windows_arm64.zip)
+- [Windows armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_windows_armv6.zip)
+- [Windows armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_windows_armv7.zip)
+- [Mac amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_darwin_amd64.tar.gz)
+- [Mac arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_darwin_arm64.tar.gz)
+- [Linux amd64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_linux_amd64.tar.gz)
+- [Linux i386](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_linux_386.tar.gz)
+- [Linux arm64](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_linux_arm64.tar.gz)
+- [Linux armv6](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_linux_armv6.tar.gz)
+- [Linux armv7](https://collection.b0.upaiyun.com/softwares/upx/upx_0.4.7_linux_armv7.tar.gz)
 
 ### 源码编译
 
