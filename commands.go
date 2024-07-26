@@ -433,12 +433,12 @@ func NewRmCommand() cli.Command {
 				mc.ItemType = ITEM_NOT_SET
 			}
 
-			if c.String("mtime") != "" {
-				err := parseMTime(c.String("mtime"), mc)
-				if err != nil {
-					PrintErrorAndExit("rm %s: parse mtime: %v", fpath, err)
-				}
-			}
+			// if c.String("mtime") != "" {
+			// 	err := parseMTime(c.String("mtime"), mc)
+			// 	if err != nil {
+			// 		PrintErrorAndExit("rm %s: parse mtime: %v", fpath, err)
+			// 	}
+			// }
 
 			session.Rm(fpath, mc, c.Bool("async"))
 			return nil
@@ -447,7 +447,7 @@ func NewRmCommand() cli.Command {
 			cli.BoolFlag{Name: "d", Usage: "only remove directories"},
 			cli.BoolFlag{Name: "a", Usage: "remove files, directories and their contents recursively, never prompt"},
 			cli.BoolFlag{Name: "async", Usage: "remove asynchronously"},
-			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
+			// cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
 		},
 	}
 }
