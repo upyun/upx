@@ -440,7 +440,6 @@ upx upload . --err-log=1.log
 | -d        | 仅删除目录 |
 | -a        | 删除目录跟文件 |
 | --async   | 异步删除，目录可能需要二次删除 |
-| --mtime v | 参考 Linux `find` |
 
 #### 语法
 ```bash
