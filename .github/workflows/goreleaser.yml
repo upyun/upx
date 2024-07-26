@@ -20,16 +20,17 @@ jobs:
           fetch-depth: 0
       -
         name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
       - name: Build Upx
         run: |
           go build ./cmd/upx
           ./upx login "${{ env.UPYUN_RELEASE_BUCKET }}" "${{ env.UPYUN_RELEASE_USERNAME }}" "${{ env.UPYUN_RELEASE_PASSWORD }}"
       -
         name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          args: release --rm-dist
+          distribution: goreleaser
+          version: '~> v2'
+          args: release  --clean
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
