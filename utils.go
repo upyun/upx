@@ -111,3 +111,26 @@ func globFiles(patterns []string) []string {
 func isWindowsGOOS() bool {
 	return runtime.GOOS == "windows"
 }
+
+func cleanFilename(name string) string {
+	if !isWindowsGOOS() {
+		return name
+	}
+	var name2 string
+	if strings.HasPrefix(name, `\\?\`) {
+		name2 = `\\?\`
+		name = strings.TrimPrefix(name, `\\?\`)
+	}
+	if strings.HasPrefix(name, `//?/`) {
+		name2 = `//?/`
+		name = strings.TrimPrefix(name, `//?/`)
+	}
+	name2 += strings.Map(func(r rune) rune {
+		switch r {
+		case '<', '>', '"', '|', '?', '*', ':':
+			return '_'
+		}
+		return r
+	}, name)
+	return name2
+}

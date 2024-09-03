@@ -296,7 +296,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 			for fInfo := range fInfoChan {
 				if IsMatched(fInfo, match) {
 					fpath := path.Join(upPath, fInfo.Name)
-					lpath := filepath.Join(localPath, filepath.FromSlash(fInfo.Name))
+					lpath := filepath.Join(localPath, filepath.FromSlash(cleanFilename(fInfo.Name)))
 					if fInfo.IsDir {
 						os.MkdirAll(lpath, 0755)
 					} else {
@@ -428,7 +428,7 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 		}
 	} else {
 		if isDir {
-			localPath = filepath.Join(localPath, path.Base(upPath))
+			localPath = filepath.Join(localPath, cleanFilename(path.Base(upPath)))
 		}
 
 		// 小于 100M 不开启多线程

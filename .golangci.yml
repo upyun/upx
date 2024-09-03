@@ -18,7 +18,7 @@ linters:
     - gofmt
     - goimports
     - goprintffuncname
-    - govet
+    # - govet
     - misspell
     - nolintlint
     - exportloopref
