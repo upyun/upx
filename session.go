@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -48,8 +49,9 @@ type Session struct {
 	updriver *upyun.UpYun
 	color    bool
 
-	scores map[int]int
-	smu    sync.RWMutex
+	scores    map[int]int
+	smu       sync.RWMutex
+	multipart bool
 
 	taskChan chan interface{}
 }
@@ -319,7 +321,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 						}
 
 						for i := 1; i <= MaxRetry; i++ {
-							e = sess.getFileWithProgress(fpath, lpath, fInfo, 1, isContinue)
+							e = sess.getFileWithProgress(fpath, lpath, fInfo, 1, isContinue, false)
 							if e == nil {
 								break
 							}
@@ -349,7 +351,7 @@ func (sess *Session) getDir(upPath, localPath string, match *MatchConfig, worker
 	return err
 }
 
-func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume bool) error {
+func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun.FileInfo, works int, resume, inprogress bool) error {
 	var err error
 
 	var bar *mpb.Bar
@@ -376,12 +378,16 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 		works,
 		func(start, end int64) ([]byte, error) {
 			var buffer bytes.Buffer
+			headers := map[string]string{
+				"Range": fmt.Sprintf("bytes=%d-%d", start, end),
+			}
+			if inprogress {
+				headers["X-Upyun-Multi-In-Progress"] = "true"
+			}
 			_, err = sess.updriver.Get(&upyun.GetObjectConfig{
-				Path:   sess.AbsPath(upPath),
-				Writer: &buffer,
-				Headers: map[string]string{
-					"Range": fmt.Sprintf("bytes=%d-%d", start, end),
-				},
+				Path:    sess.AbsPath(upPath),
+				Writer:  &buffer,
+				Headers: headers,
 			})
 			return buffer.Bytes(), err
 		},
@@ -396,9 +402,14 @@ func (sess *Session) getFileWithProgress(upPath, localPath string, upInfo *upyun
 	return err
 }
 
-func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers int, resume bool) {
+func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers int, resume, inprogress bool) {
 	upPath = sess.AbsPath(upPath)
-	upInfo, err := sess.updriver.GetInfo(upPath)
+	headers := map[string]string{}
+	if inprogress {
+		headers["X-Upyun-Multi-In-Progress"] = "true"
+		resume = true
+	}
+	upInfo, err := sess.updriver.GetInfoWithHeaders(upPath, headers)
 	if err != nil {
 		PrintErrorAndExit("getinfo %s: %v", upPath, err)
 	}
@@ -414,6 +425,9 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 	}
 
 	if upInfo.IsDir {
+		if inprogress {
+			PrintErrorAndExit("get: %s is a directory", localPath)
+		}
 		if exist {
 			if !isDir {
 				PrintErrorAndExit("get: %s Not a directory", localPath)
@@ -432,10 +446,10 @@ func (sess *Session) Get(upPath, localPath string, match *MatchConfig, workers i
 		}
 
 		// 小于 100M 不开启多线程
-		if upInfo.Size < 1024*1024*100 {
+		if upInfo.Size < 1024*1024*100 || inprogress {
 			workers = 1
 		}
-		err := sess.getFileWithProgress(upPath, localPath, upInfo, workers, resume)
+		err := sess.getFileWithProgress(upPath, localPath, upInfo, workers, resume, inprogress)
 		if err != nil {
 			PrintErrorAndExit(err.Error())
 		}
@@ -483,7 +497,7 @@ func (sess *Session) GetStartBetweenEndFiles(upPath, localPath string, match *Ma
 	for fInfo := range fInfoChan {
 		fp := filepath.Join(fpath, fInfo.Name)
 		if (fp >= startList || startList == "") && (fp < endList || endList == "") {
-			sess.Get(fp, localPath, match, workers, false)
+			sess.Get(fp, localPath, match, workers, false, false)
 		} else if strings.HasPrefix(startList, fp) {
 			//前缀相同进入下一级文件夹，继续递归判断
 			if fInfo.IsDir {
@@ -516,16 +530,22 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 	if IsVerbose {
 		if localInfo.Size() > 0 {
 			bar = processbar.ProcessBar.AddBar(upPath, localInfo.Size())
-			cfg.Reader = NewFileWrappedReader(bar, fd)
+			cfg.ProxyReader = func(offset int64, r io.Reader) io.Reader {
+				if offset > 0 {
+					bar.SetCurrent(offset)
+				}
+				return bar.ProxyReader(r)
+			}
 		}
 	} else {
 		log.Printf("file: %s, Start\n", upPath)
-		if localInfo.Size() >= MinResumePutFileSize {
-			cfg.UseResumeUpload = true
-			cfg.ResumePartSize = DefaultBlockSize
-			cfg.MaxResumePutTries = DefaultResumeRetry
-		}
 	}
+	if localInfo.Size() >= MinResumePutFileSize || sess.multipart {
+		cfg.UseResumeUpload = true
+		cfg.ResumePartSize = DefaultBlockSize
+		cfg.MaxResumePutTries = DefaultResumeRetry
+	}
+
 	err = sess.updriver.Put(cfg)
 	if bar != nil {
 		bar.EnableTriggerComplete()
@@ -688,9 +708,11 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 }
 
 // / Put 上传单文件或单目录
-func (sess *Session) Put(localPath, upPath string, workers int, withIgnore bool) {
+func (sess *Session) Put(localPath, upPath string, workers int, withIgnore, inprogress bool) {
 	upPath = sess.AbsPath(upPath)
-
+	if inprogress {
+		sess.multipart = true
+	}
 	exist, isDir := false, false
 	if upInfo, _ := sess.updriver.GetInfo(upPath); upInfo != nil {
 		exist = true

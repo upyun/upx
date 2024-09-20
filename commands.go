@@ -307,15 +307,19 @@ func NewGetCommand() cli.Command {
 				PrintErrorAndExit("max concurrent threads must between (1 - 10)")
 			}
 			if mc.Start != "" || mc.End != "" {
+				if c.Bool("in-progress") {
+					PrintErrorAndExit("get %s: --in-progress and -start/-end can't be used together", upPath)
+				}
 				session.GetStartBetweenEndFiles(upPath, localPath, mc, c.Int("w"))
 			} else {
-				session.Get(upPath, localPath, mc, c.Int("w"), c.Bool("c"))
+				session.Get(upPath, localPath, mc, c.Int("w"), c.Bool("c"), c.Bool("in-progress"))
 			}
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads (1-10)", Value: 5},
 			cli.BoolFlag{Name: "c", Usage: "continue download, Resume Broken Download"},
+			cli.BoolFlag{Name: "in-progress", Usage: "download the file being uploaded"},
 			cli.StringFlag{Name: "mtime", Usage: "file's data was last modified n*24 hours ago, same as linux find command."},
 			cli.StringFlag{Name: "start", Usage: "file download range starting location"},
 			cli.StringFlag{Name: "end", Usage: "file download range ending location"},
@@ -358,11 +362,13 @@ func NewPutCommand() cli.Command {
 				upPath,
 				c.Int("w"),
 				c.Bool("all"),
+				c.Bool("in-progress"),
 			)
 			return nil
 		},
 		Flags: []cli.Flag{
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.BoolFlag{Name: "in-progress", Usage: "upload a file that can be downloaded simultaneously"},
 			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
 			cli.StringFlag{Name: "err-log", Usage: "upload file error log to file"},
 		},

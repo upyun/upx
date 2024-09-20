@@ -396,6 +396,18 @@ upx put ./video /myfiles
 upx put . --err-log=err.log
 ```
 
+### 上传大文件的过程中同时下载
+
+```
+upx put --in-progress ./file_1G ./inprogress/file_1G
+```
+
+```
+upx get --in-progress /inprogress/file_1G inprogress/file_1G
+```
+
+
+
 ## upload
 > 上传文件或目录，支持多文件，文件名匹配
 
