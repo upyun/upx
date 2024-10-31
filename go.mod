@@ -6,7 +6,7 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/upyun/go-sdk/v3 v3.0.5-0.20241031024504-de08aa91940c
+	github.com/upyun/go-sdk/v3 v3.0.5-0.20241031074256-0e762735b0db
 	github.com/urfave/cli v1.22.12
 	github.com/vbauerster/mpb/v8 v8.5.2
 	golang.org/x/term v0.22.0
