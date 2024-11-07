@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"sync"
 )
@@ -116,6 +117,7 @@ func (p *MultiPartialDownloader) Download() error {
 					chunksSorter.Write(chunk)
 
 					if err != nil {
+						log.Printf("part %d, error: %s", chunk.index, err)
 						return
 					}
 				}
@@ -135,7 +137,11 @@ func (p *MultiPartialDownloader) Download() error {
 		if len(chunk.Data()) == 0 {
 			return errors.New("chunk buffer download but size is 0")
 		}
-		p.writer.Write(chunk.Data())
+		_, err := p.writer.Write(chunk.Data())
+		if err != nil {
+			log.Printf("part %d, error: %s", chunk.index, err)
+			return err
+		}
 	}
 	return nil
 }
