@@ -112,6 +112,22 @@ func isWindowsGOOS() bool {
 	return runtime.GOOS == "windows"
 }
 
+func ResumePartSize(size int64) int64 {
+	if size < 50*1024*1024 {
+		return 1024 * 1024
+	}
+
+	if size < 1024*1024*1024 {
+		return 10 * 1024 * 1024
+	}
+
+	if size < 100*1024*1024*1024 {
+		return 50 * 1024 * 1024
+	}
+
+	return 100 * 1024 * 1024
+}
+
 func cleanFilename(name string) string {
 	if !isWindowsGOOS() {
 		return name

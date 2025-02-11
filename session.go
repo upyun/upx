@@ -542,7 +542,7 @@ func (sess *Session) putFileWithProgress(localPath, upPath string, localInfo os.
 	}
 	if localInfo.Size() >= MinResumePutFileSize || sess.multipart {
 		cfg.UseResumeUpload = true
-		cfg.ResumePartSize = DefaultBlockSize
+		cfg.ResumePartSize = ResumePartSize(localInfo.Size())
 		cfg.MaxResumePutTries = DefaultResumeRetry
 	}
 
