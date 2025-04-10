@@ -1,25 +1,40 @@
+version: "2"
 run:
   tests: false
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
-  disable-all: true
+  default: none
   enable:
     - dogsled
     - dupl
     - gochecknoinits
     - gocyclo
-    - gofmt
-    - goimports
     - goprintffuncname
     - misspell
     - nolintlint
-    - typecheck
     - unconvert
     - unparam
     - whitespace
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
