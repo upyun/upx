@@ -1041,8 +1041,13 @@ func (sess *Session) syncFile(localPath, upPath string, strongCheck bool) (statu
 			}
 		}
 	}
-
-	err = sess.updriver.Put(&upyun.PutObjectConfig{Path: upPath, LocalPath: localPath})
+	for i := 1; i <= MaxRetry; i++ {
+		err = sess.updriver.Put(&upyun.PutObjectConfig{Path: upPath, LocalPath: localPath})
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Duration(i*(rand.Intn(MaxJitter-MinJitter)+MinJitter)) * time.Second)
+	}
 	if err != nil {
 		return SYNC_FAIL, err
 	}

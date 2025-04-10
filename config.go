@@ -15,9 +15,9 @@ import (
 const (
 	LOGIN     = true
 	NO_LOGIN  = false
-	MinJitter = 5
-	MaxJitter = 60
-	MaxRetry  = 10
+	MinJitter = 1
+	MaxJitter = 5
+	MaxRetry  = 5
 )
 
 type Config struct {
