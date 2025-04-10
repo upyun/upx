@@ -10,7 +10,6 @@ linters:
   # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
-    - depguard
     - dogsled
     - dupl
     - gochecknoinits
@@ -18,23 +17,9 @@ linters:
     - gofmt
     - goimports
     - goprintffuncname
-    # - govet
     - misspell
     - nolintlint
-    - exportloopref
     - typecheck
     - unconvert
     - unparam
     - whitespace
-
-linters-settings:
-  depguard:
-    rules:
-      main:
-        allow:
-          - $gostd
-          - github.com
-      test:
-        allow:
-          - $gostd
-          - github.com

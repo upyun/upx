@@ -1,6 +1,8 @@
 module github.com/upyun/upx
 
-go 1.22.4
+go 1.23.0
+
+toolchain go1.23.8
 
 require (
 	github.com/fatih/color v1.15.0
@@ -9,7 +11,7 @@ require (
 	github.com/upyun/go-sdk/v3 v3.0.5-0.20241031074256-0e762735b0db
 	github.com/urfave/cli v1.22.12
 	github.com/vbauerster/mpb/v8 v8.5.2
-	golang.org/x/term v0.22.0
+	golang.org/x/term v0.31.0
 )
 
 require (
@@ -26,7 +28,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
