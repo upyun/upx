@@ -71,6 +71,7 @@ type UploadedFile struct {
 	LocalPath string
 	UpPath    string
 	LocalInfo os.FileInfo
+	Mode      int
 }
 
 var (
@@ -620,10 +621,11 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 		go func() {
 			defer wg.Done()
 			for task := range tasks {
-				err := sess.putFileWithProgress(
+				err := sess.putFileWithProgressAndMode(
 					task.LocalPath,
 					task.UpPath,
 					task.LocalInfo,
+					task.Mode,
 				)
 				if err != nil {
 					fmt.Println("putFileWithProgress error: ", err.Error())
@@ -641,7 +643,7 @@ func (sess *Session) putFilesWitchProgress(localFiles []*UploadedFile, workers i
 	wg.Wait()
 }
 
-func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool) {
+func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bool, mode int) {
 	localAbsPath, err := filepath.Abs(localPath)
 	if err != nil {
 		PrintErrorAndExit(err.Error())
@@ -672,7 +674,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 				if err == nil && fInfo.IsDir() {
 					err = sess.updriver.Mkdir(desPath)
 				} else {
-					err = sess.putFileWithProgress(info.fpath, desPath, info.fInfo)
+					err = sess.putFileWithProgressAndMode(info.fpath, desPath, info.fInfo, mode)
 				}
 				if err != nil {
 					log.Printf("put %s to %s error: %s", info.fpath, desPath, err)
@@ -708,7 +710,7 @@ func (sess *Session) putDir(localPath, upPath string, workers int, withIgnore bo
 }
 
 // / Put 上传单文件或单目录
-func (sess *Session) Put(localPath, upPath string, workers int, withIgnore, inprogress bool) {
+func (sess *Session) Put(localPath, upPath string, workers int, withIgnore, inprogress bool, mode int) {
 	upPath = sess.AbsPath(upPath)
 	if inprogress {
 		sess.multipart = true
@@ -762,17 +764,18 @@ func (sess *Session) Put(localPath, upPath string, workers int, withIgnore, inpr
 				upPath = path.Join(upPath, filepath.Base(localPath))
 			}
 		}
-		sess.putDir(localPath, upPath, workers, withIgnore)
+		sess.putDir(localPath, upPath, workers, withIgnore, mode)
 	} else {
 		if isDir {
 			upPath = path.Join(upPath, filepath.Base(localPath))
 		}
-		sess.putFileWithProgress(localPath, upPath, localInfo)
+
+		sess.putFileWithProgressAndMode(localPath, upPath, localInfo, mode)
 	}
 }
 
 // put 的升级版命令, 支持多文件上传
-func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool) {
+func (sess *Session) Upload(filenames []string, upPath string, workers int, withIgnore bool, mode int) {
 	upPath = sess.AbsPath(upPath)
 
 	// 检测云端的目的地目录
@@ -804,6 +807,7 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int, with
 				LocalPath: filename,
 				UpPath:    path.Join(upPath, filepath.Base(filename)),
 				LocalInfo: localInfo,
+				Mode:      mode,
 			})
 		}
 	}
@@ -815,6 +819,7 @@ func (sess *Session) Upload(filenames []string, upPath string, workers int, with
 			path.Join(upPath, filepath.Base(localPath)),
 			workers,
 			withIgnore,
+			mode,
 		)
 	}
 
@@ -1372,4 +1377,48 @@ func (sess *Session) copyMove(srcPath, destPath, method string, force bool) erro
 	default:
 		return fmt.Errorf("not support method")
 	}
+}
+
+func (sess *Session) putFileWithProgressAndMode(localPath, upPath string, localInfo os.FileInfo, mode int) error {
+	// 检查文件是否存在于远程
+	upInfo, err := sess.updriver.GetInfo(upPath)
+
+	// 根据不同模式处理上传逻辑
+	if err == nil { // 文件存在于远程
+		switch mode {
+		case 1: // 覆盖上传
+			// 继续上传，覆盖远程文件
+		case 2: // 跳过重复
+			if !IsVerbose {
+				log.Printf("file: %s, Skipped (already exists)\n", upPath)
+			} else {
+				fmt.Printf("file: %s, Skipped (already exists)\n", upPath)
+			}
+			return nil
+		case 3: // 检查文件大小
+			// 如果远程文件大小大于等于本地文件，则跳过
+			if upInfo.Size >= localInfo.Size() {
+				if !IsVerbose {
+					log.Printf("file: %s, Skipped (remote size >= local size)\n", upPath)
+				} else {
+					fmt.Printf("file: %s, Skipped (remote size >= local size)\n", upPath)
+				}
+				return nil
+			}
+			// 否则继续上传，覆盖远程文件
+		default:
+			// 默认为模式3
+			if upInfo.Size >= localInfo.Size() {
+				if !IsVerbose {
+					log.Printf("file: %s, Skipped (remote size >= local size)\n", upPath)
+				} else {
+					fmt.Printf("file: %s, Skipped (remote size >= local size)\n", upPath)
+				}
+				return nil
+			}
+		}
+	}
+
+	// 执行上传
+	return sess.putFileWithProgress(localPath, upPath, localInfo)
 }
