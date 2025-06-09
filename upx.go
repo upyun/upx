@@ -60,6 +60,7 @@ func CreateUpxApp() *cli.App {
 		NewUpgradeCommand(),
 		NewCopyCommand(),
 		NewMoveCommand(),
+		NewPutByMapCommand(),
 	}
 	return app
 }

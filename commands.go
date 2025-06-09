@@ -363,6 +363,7 @@ func NewPutCommand() cli.Command {
 				c.Int("w"),
 				c.Bool("all"),
 				c.Bool("in-progress"),
+				c.Int("mode"),
 			)
 			return nil
 		},
@@ -371,6 +372,7 @@ func NewPutCommand() cli.Command {
 			cli.BoolFlag{Name: "in-progress", Usage: "upload a file that can be downloaded simultaneously"},
 			cli.BoolFlag{Name: "all", Usage: "upload all files including hidden files"},
 			cli.StringFlag{Name: "err-log", Usage: "upload file error log to file"},
+			cli.IntFlag{Name: "mode", Usage: "upload mode: 1=overwrite, 2=skip if exists, 3=overwrite if remote is smaller (default)", Value: 3},
 		},
 	}
 }
@@ -403,6 +405,7 @@ func NewUploadCommand() cli.Command {
 				c.String("remote"),
 				c.Int("w"),
 				c.Bool("all"),
+				c.Int("mode"),
 			)
 			return nil
 		},
@@ -411,6 +414,7 @@ func NewUploadCommand() cli.Command {
 			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
 			cli.StringFlag{Name: "remote", Usage: "remote path", Value: "./"},
 			cli.StringFlag{Name: "err-log", Usage: "upload file error log to file"},
+			cli.IntFlag{Name: "mode", Usage: "upload mode: 1=overwrite, 2=skip if exists, 3=overwrite if remote is smaller (default)", Value: 3},
 		},
 	}
 }
@@ -631,6 +635,26 @@ func NewMoveCommand() cli.Command {
 		},
 		Flags: []cli.Flag{
 			cli.BoolFlag{Name: "f", Usage: "Force overwrite existing files"},
+		},
+	}
+}
+
+func NewPutByMapCommand() cli.Command {
+	return cli.Command{
+		Name:      "put-by-map",
+		Usage:     "put files inside cloud storage by map",
+		ArgsUsage: "[map-file]",
+		Before:    CreateInitCheckFunc(LOGIN, CHECK),
+		Action: func(c *cli.Context) error {
+			if c.NArg() != 1 {
+				PrintErrorAndExit("invalid command args")
+			}
+			session.PutByMap(c.Args()[0], c.Int("w"), c.Int("mode"))
+			return nil
+		},
+		Flags: []cli.Flag{
+			cli.IntFlag{Name: "w", Usage: "max concurrent threads", Value: 5},
+			cli.IntFlag{Name: "mode", Usage: "upload mode: 1=overwrite, 2=skip if exists, 3=overwrite if remote is smaller (default)", Value: 3},
 		},
 	}
 }
