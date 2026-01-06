@@ -35,6 +35,11 @@ func getDBName() string {
 	if runtime.GOOS == "windows" {
 		return filepath.Join(os.Getenv("USERPROFILE"), ".upx.db")
 	}
+
+	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
+		return filepath.Join(xdgDataHome, "upx", "upx.db")
+	}
+
 	return filepath.Join(os.Getenv("HOME"), ".upx.db")
 }
 
@@ -182,7 +187,13 @@ func diffFileMetas(src []*fileMeta, dst []*fileMeta) []*fileMeta {
 }
 
 func initDB() (err error) {
-	db, err = leveldb.OpenFile(getDBName(), nil)
+	dbName := getDBName()
+	dir := filepath.Dir(dbName)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		PrintErrorAndExit("create db directory: %v", err)
+	}
+
+	db, err = leveldb.OpenFile(dbName, nil)
 	if err != nil {
 		Print("db %v %s", err, getDBName())
 	}
