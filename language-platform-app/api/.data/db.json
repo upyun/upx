@@ -1,0 +1,40 @@
+{
+  "users": [
+    {
+      "id": "eee8d5a8-d0a7-4c39-88ab-c3e6049ecd34",
+      "email": "demo@example.com",
+      "passwordHash": "3ffafee2be35687f754feaefc28712f5811fb2c43f9615120d8d0ee06afa4c83",
+      "passwordSalt": "08abd96a0321bf1e0143ab4a8633acc5",
+      "uiLocale": "en",
+      "createdAt": "2026-04-20T07:43:39.349Z"
+    },
+    {
+      "id": "ab808eec-2714-41ed-b7bd-5683a3be6fc5",
+      "email": "smoke_1776671201564@example.com",
+      "passwordHash": "1a36bb053c56a7ee0c0b4f66fb16aeb8acd28358b01208adfd43631598b57f18",
+      "passwordSalt": "0802100f0a89b65349c87bc05835c66d",
+      "uiLocale": "en",
+      "createdAt": "2026-04-20T07:46:41.603Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "03361106c015b5495202de98c4e8550371a0041c7aece23f9593c42e2f08683b",
+      "userId": "eee8d5a8-d0a7-4c39-88ab-c3e6049ecd34",
+      "createdAt": "2026-04-20T07:43:39.351Z",
+      "expiresAt": "2026-05-04T07:43:39.351Z"
+    },
+    {
+      "id": "fd23c4488414694e620f11dd1012da3718326a3f4d32a0aefc9fa771e14ecf51",
+      "userId": "eee8d5a8-d0a7-4c39-88ab-c3e6049ecd34",
+      "createdAt": "2026-04-20T07:45:47.946Z",
+      "expiresAt": "2026-05-04T07:45:47.946Z"
+    },
+    {
+      "id": "ba7687a266bf405a3a806fba8a0e8f78dbaa003210648d1530209b7726b99c66",
+      "userId": "ab808eec-2714-41ed-b7bd-5683a3be6fc5",
+      "createdAt": "2026-04-20T07:46:41.603Z",
+      "expiresAt": "2026-05-04T07:46:41.603Z"
+    }
+  ]
+}
