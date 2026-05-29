@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - '*'
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    env:
+      UPYUN_RELEASE_BUCKET: ${{ secrets.UPYUN_RELEASE_BUCKET }}
+      UPYUN_RELEASE_USERNAME: ${{ secrets.UPYUN_RELEASE_USERNAME }}
+      UPYUN_RELEASE_PASSWORD: ${{ secrets.UPYUN_RELEASE_PASSWORD }}
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v5
+      - name: Build Upx
+        run: |
+          go build ./cmd/upx
+          ./upx login "${{ env.UPYUN_RELEASE_BUCKET }}" "${{ env.UPYUN_RELEASE_USERNAME }}" "${{ env.UPYUN_RELEASE_PASSWORD }}"
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release  --clean
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

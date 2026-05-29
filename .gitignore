@@ -1,0 +1,11 @@
+/upx
+*.swo
+*.swp
+*.swn
+.vscode
+tmp
+upx-*
+release
+dist
+FILE
+list

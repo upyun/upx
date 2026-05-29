@@ -1,0 +1,54 @@
+name: Test
+on:
+  pull_request_target:
+    types: [labeled]
+    paths-ignore:
+      - "**.md"
+  push:
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go-version: [^1]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event_name != 'pull_request_target' || (contains(github.event.pull_request.labels.*.name, 'ok to test') && github.event.pull_request.state == 'open') }}
+    env:
+      GO111MODULE: "on"
+      UPYUN_BUCKET1: ${{ secrets.UPYUN_BUCKET1 }}
+      UPYUN_BUCKET2: ${{ secrets.UPYUN_BUCKET2 }}
+      UPYUN_PASSWORD: ${{ secrets.UPYUN_PASSWORD }}
+      UPYUN_USERNAME: ${{ secrets.UPYUN_USERNAME }}
+    steps:
+      - name: Remove 'ok to test' Label
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: actions-ecosystem/action-remove-labels@v1.3.0
+        with:
+          labels: 'ok to test'
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download Go modules
+        run: go mod download
+      - name: Test
+        run: |
+          go build -v ./cmd/upx
+          go test -v ./...

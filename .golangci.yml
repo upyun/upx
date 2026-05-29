@@ -1,0 +1,40 @@
+version: "2"
+run:
+  tests: false
+linters:
+  default: none
+  enable:
+    - dogsled
+    - dupl
+    - gochecknoinits
+    - gocyclo
+    - goprintffuncname
+    - misspell
+    - nolintlint
+    - unconvert
+    - unparam
+    - whitespace
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
